@@ -3,7 +3,7 @@ const bodyParser = require("body-parser");
 const cors = require("cors");
 const app = express();
 const mongoose = require("mongoose");
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const port = 3000;
 const helmet = require("helmet");
@@ -11,7 +11,7 @@ const mongoSanitize = require("express-mongo-sanitize");
 app.use(helmet());
 app.use(mongoSanitize());
 
-require("dotenv").config();
+require("dotenv").config({ override: true });
 const User = require("./models/User"); // Adjust the path as necessary
 const connectToDb = require("./config/db");
 connectToDb();
