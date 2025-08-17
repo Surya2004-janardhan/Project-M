@@ -5,7 +5,7 @@ const app = express();
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const port = 3000;
+const port = process.env.PORT || 5000;
 const helmet = require("helmet");
 const mongoSanitize = require("express-mongo-sanitize");
 app.use(helmet());
