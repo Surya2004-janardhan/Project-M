@@ -6,6 +6,10 @@ const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const port = 3000;
+const helmet = require("helmet");
+const mongoSanitize = require("express-mongo-sanitize");
+app.use(helmet());
+app.use(mongoSanitize());
 
 require("dotenv").config();
 const User = require("./models/User"); // Adjust the path as necessary
