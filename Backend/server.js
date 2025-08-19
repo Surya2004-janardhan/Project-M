@@ -173,6 +173,10 @@ app.post("/user/insertData/:id", middleware, async (req, res) => {
 
 // oauth gmail integration for user inside the side so that youtube can be accessed to them using API
 app.get("/oauth/google", (req, res) => {
+  console.log("=== OAuth Init ===");
+  console.log("Client ID:", process.env.GOOGLE_CLIENT_ID);
+  console.log("Redirect URI:", process.env.GOOGLE_REDIRECT_URI);
+
   // This route should redirect to Google's OAuth consent page with YouTube scope
   const scopes = [
     "https://www.googleapis.com/auth/userinfo.email",
@@ -184,28 +188,43 @@ app.get("/oauth/google", (req, res) => {
   const redirectUri =
     `https://accounts.google.com/o/oauth2/v2/auth?` +
     `client_id=${process.env.GOOGLE_CLIENT_ID}&` +
-    `redirect_uri=${process.env.GOOGLE_REDIRECT_URI}&` +
+    `redirect_uri=${encodeURIComponent(process.env.GOOGLE_REDIRECT_URI)}&` +
     `response_type=code&` +
     `scope=${encodeURIComponent(scopes.join(" "))}&` +
     `access_type=offline&` +
     `prompt=consent`;
 
+  console.log("Generated OAuth URL:", redirectUri);
   res.redirect(redirectUri);
 });
 
 app.get("/oauth/google/callback", async (req, res) => {
+  console.log("=== OAuth Callback ===");
+  console.log("Query params:", req.query);
+
   // This route handles the callback from Google after user consent
   const { code, error } = req.query;
 
   if (error) {
-    return res.status(400).json({ message: `OAuth error: ${error}` });
+    console.log("OAuth error received:", error);
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+    return res.redirect(
+      `${frontendUrl}?oauth=error&message=${encodeURIComponent(error)}`
+    );
   }
 
   if (!code) {
-    return res.status(400).json({ message: "Authorization code is required" });
+    console.log("No authorization code received");
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+    return res.redirect(
+      `${frontendUrl}?oauth=error&message=${encodeURIComponent(
+        "No authorization code received"
+      )}`
+    );
   }
 
   try {
+    console.log("Exchanging code for tokens...");
     // Exchange the authorization code for access token
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
@@ -222,13 +241,19 @@ app.get("/oauth/google/callback", async (req, res) => {
     });
 
     const tokenData = await tokenResponse.json();
+    console.log("Token response:", tokenData);
 
     if (tokenData.error) {
-      return res.status(400).json({
-        message: tokenData.error_description || tokenData.error,
-      });
+      console.log("Token exchange error:", tokenData.error);
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+      return res.redirect(
+        `${frontendUrl}?oauth=error&message=${encodeURIComponent(
+          tokenData.error_description || tokenData.error
+        )}`
+      );
     }
 
+    console.log("Fetching user info...");
     // Use the access token to fetch user info
     const userInfoResponse = await fetch(
       "https://www.googleapis.com/oauth2/v2/userinfo",
@@ -240,9 +265,16 @@ app.get("/oauth/google/callback", async (req, res) => {
     );
 
     const userInfo = await userInfoResponse.json();
+    console.log("User info:", userInfo);
 
     if (userInfo.error) {
-      return res.status(400).json({ message: userInfo.error.message });
+      console.log("User info error:", userInfo.error);
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+      return res.redirect(
+        `${frontendUrl}?oauth=error&message=${encodeURIComponent(
+          userInfo.error.message
+        )}`
+      );
     }
 
     // For demo purposes, we'll store this in a temporary session
@@ -260,22 +292,18 @@ app.get("/oauth/google/callback", async (req, res) => {
       connectedAt: new Date(),
     };
 
+    console.log("OAuth data prepared:", oauthData);
+
     // Redirect to frontend with success message
     const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
-    res.redirect(
-      `${frontendUrl}?oauth=success&data=${encodeURIComponent(
-        JSON.stringify({
-          message: "YouTube OAuth successful",
-          user: {
-            name: userInfo.name,
-            email: userInfo.email,
-            picture: userInfo.picture,
-          },
-        })
-      )}`
-    );
+    const redirectUrl = `${frontendUrl}?oauth=success&data=${encodeURIComponent(
+      JSON.stringify(oauthData)
+    )}`;
+    console.log("Redirecting to:", redirectUrl);
+
+    res.redirect(redirectUrl);
   } catch (error) {
-    console.error("OAuth error:", error);
+    console.error("OAuth callback error:", error);
     const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
     res.redirect(
       `${frontendUrl}?oauth=error&message=${encodeURIComponent(

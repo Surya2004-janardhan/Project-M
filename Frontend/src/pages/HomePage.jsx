@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../store/AuthContext";
-import { oauthAPI, userAPI, tokenManager } from "../api/api";
+import { userAPI, tokenManager } from "../api/api";
 
 export default function HomePage() {
   const { user } = useAuth();
@@ -11,60 +11,119 @@ export default function HomePage() {
   const [oauthMessage, setOauthMessage] = useState("");
 
   useEffect(() => {
-    if (user) {
-      checkYouTubeConnection();
-      handleOAuthCallback();
-    }
-  }, [user]);
+    // First check if JWT token exists (user authentication)
+    const jwtToken = localStorage.getItem("token");
 
-  const handleOAuthCallback = () => {
+    // Check for OAuth redirect first
     const urlParams = new URLSearchParams(window.location.search);
-    const oauthStatus = urlParams.get("oauth");
-    const oauthData = urlParams.get("data");
-    const errorMessage = urlParams.get("message");
+    const oauthSuccess = urlParams.get("oauth_success");
+    const oauthData = urlParams.get("oauth_data");
+    const oauthError = urlParams.get("oauth_error");
 
-    if (oauthStatus === "success" && oauthData) {
+    if (oauthSuccess === "true" && oauthData) {
       try {
+        // Store OAuth data permanently
         const parsedData = JSON.parse(decodeURIComponent(oauthData));
-        setOauthMessage("Connecting your YouTube account...");
-        // Associate OAuth data with current user
-        associateOAuthWithUser(parsedData);
+        localStorage.setItem("youtube_oauth_data", JSON.stringify(parsedData));
+
+        // Restore JWT token if it was backed up
+        const backupToken = sessionStorage.getItem("auth_token_backup");
+        if (backupToken && !jwtToken) {
+          localStorage.setItem("token", backupToken);
+        }
+
+        // Clean up session storage
+        sessionStorage.removeItem("auth_token_backup");
+        sessionStorage.removeItem("user_email_backup");
+
         // Clean URL
         window.history.replaceState(
           {},
           document.title,
           window.location.pathname
         );
+
+        // Set success message and connected state
+        setOauthMessage("YouTube account connected successfully!");
+        setIsYouTubeConnected(true);
+        setTimeout(() => setOauthMessage(""), 3000);
+
+        // Also save to backend
+        associateOAuthWithUser(parsedData);
       } catch (error) {
-        console.error("Error parsing OAuth data:", error);
-        setOauthMessage("Error connecting YouTube account");
+        console.error("Error processing OAuth:", error);
+        setOauthMessage("Error processing YouTube connection");
       }
-    } else if (oauthStatus === "error") {
-      console.error("OAuth error:", errorMessage);
-      setOauthMessage("Failed to connect YouTube account");
-      // Clean URL
+    } else if (oauthError) {
+      console.error("OAuth error:", oauthError);
+      setOauthMessage(`Failed to connect YouTube: ${oauthError}`);
       window.history.replaceState({}, document.title, window.location.pathname);
+      setTimeout(() => setOauthMessage(""), 5000);
     }
-  };
+
+    // Check if user is authenticated (JWT exists)
+    if (localStorage.getItem("token")) {
+      // User is logged in, check YouTube connection status
+      checkYouTubeConnection();
+    }
+    // If no JWT token exists, AuthContext will redirect to login
+  }, [user]);
 
   const associateOAuthWithUser = async (oauthData) => {
     try {
-      const result = await oauthAPI.associateOAuthData(oauthData);
-      if (result.message) {
-        setIsYouTubeConnected(true);
-        setOauthMessage("YouTube account connected successfully!");
-        setTimeout(() => setOauthMessage(""), 3000);
-        // Refresh user profile
-        checkYouTubeConnection();
+      console.log("Associating OAuth data with user:", oauthData);
+
+      // Also save to backend if user is logged in
+      if (tokenManager.getToken()) {
+        const response = await fetch("http://localhost:5000/oauth/associate", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${tokenManager.getToken()}`,
+          },
+          body: JSON.stringify({ oauthData }),
+        });
+
+        const result = await response.json();
+        console.log("Associate result:", result);
+
+        if (result.message) {
+          console.log("OAuth data successfully saved to backend");
+        }
       }
     } catch (error) {
       console.error("Error associating OAuth data:", error);
-      setOauthMessage("Error connecting YouTube account");
     }
   };
 
   const checkYouTubeConnection = async () => {
     try {
+      // Check local storage first for OAuth data
+      const localOAuthData = localStorage.getItem("youtube_oauth_data");
+      if (localOAuthData) {
+        try {
+          const parsedData = JSON.parse(localOAuthData);
+          // Check if token is still valid (not expired)
+          const now = new Date();
+          const connectedAt = new Date(parsedData.connectedAt);
+          const expiresAt = new Date(
+            connectedAt.getTime() + parsedData.expiresIn * 1000
+          );
+
+          if (now < expiresAt) {
+            setIsYouTubeConnected(true);
+            return;
+          } else {
+            // Token expired, remove from localStorage
+            localStorage.removeItem("youtube_oauth_data");
+          }
+        } catch (error) {
+          console.error("Error parsing stored OAuth data:", error);
+          localStorage.removeItem("youtube_oauth_data");
+        }
+      }
+
+      // Check backend as fallback
       const userId = tokenManager.getUserId();
       if (userId) {
         const result = await userAPI.getUserData(userId);
@@ -83,11 +142,17 @@ export default function HomePage() {
     }
   };
 
-  const handleConnectYouTube = () => {
-    setLoading(true);
-    // Redirect to OAuth endpoint
-    oauthAPI.initiateGoogleOAuth();
+  // Function to get stored OAuth tokens for YouTube API requests
+  const getYouTubeTokens = () => {
+    const localOAuthData = localStorage.getItem("youtube_oauth_data");
+    if (localOAuthData) {
+      return JSON.parse(localOAuthData);
+    }
+    return null;
   };
+
+  // Expose the token getter globally for use in other components
+  window.getYouTubeTokens = getYouTubeTokens;
 
   return (
     <div className="py-8">
@@ -151,7 +216,29 @@ export default function HomePage() {
                       Connect your YouTube account to enable advanced features
                     </p>
                     <button
-                      onClick={handleConnectYouTube}
+                      onClick={() => {
+                        setLoading(true);
+                        setOauthMessage("Redirecting to Google OAuth...");
+
+                        // Store current authentication state
+                        const currentToken = localStorage.getItem("token");
+                        const userEmail = user?.email;
+
+                        if (currentToken) {
+                          sessionStorage.setItem(
+                            "auth_token_backup",
+                            currentToken
+                          );
+                          sessionStorage.setItem(
+                            "user_email_backup",
+                            userEmail || ""
+                          );
+                        }
+
+                        // Redirect to OAuth
+                        window.location.href =
+                          "http://localhost:5000/oauth/google";
+                      }}
                       disabled={loading}
                       className="bg-red-600 hover:bg-red-700 text-white font-semibold px-6 py-3 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2 mx-auto"
                     >
