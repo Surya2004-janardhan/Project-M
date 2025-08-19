@@ -14,50 +14,52 @@ export default function HomePage() {
               Welcome back, {user.name}!
             </h1>
             <p className="text-red-700 text-lg mb-8">
-              You're successfully logged in to your account.
+              Manage your YouTube channels and automate comment replies with AI.
             </p>
 
             <div className="grid md:grid-cols-3 gap-6 mt-12 max-w-4xl mx-auto">
               <div className="bg-white rounded-lg shadow-lg p-6 border-t-4 border-amber-900">
                 <h3 className="text-xl font-semibold text-amber-900 mb-3">
-                  My Content
+                  YouTube Management
                 </h3>
                 <p className="text-red-700 mb-4">
-                  Manage and view your content
+                  Analyze channels, videos, and manage comments
                 </p>
                 <Link
-                  to="/content"
+                  to="/youtube"
                   className="bg-amber-900 hover:bg-amber-800 text-white px-4 py-2 rounded transition-colors inline-block"
                 >
-                  View Content
+                  Manage YouTube
                 </Link>
               </div>
 
               <div className="bg-white rounded-lg shadow-lg p-6 border-t-4 border-red-800">
                 <h3 className="text-xl font-semibold text-amber-900 mb-3">
-                  Usage Stats
+                  Usage Analytics
                 </h3>
-                <p className="text-red-700 mb-4">Check your usage statistics</p>
+                <p className="text-red-700 mb-4">
+                  Track your comment automation activity
+                </p>
                 <Link
                   to="/usage"
                   className="bg-red-800 hover:bg-red-700 text-white px-4 py-2 rounded transition-colors inline-block"
                 >
-                  View Usage
+                  View Analytics
                 </Link>
               </div>
 
               <div className="bg-white rounded-lg shadow-lg p-6 border-t-4 border-amber-700">
                 <h3 className="text-xl font-semibold text-amber-900 mb-3">
-                  Profile
+                  Content Library
                 </h3>
                 <p className="text-red-700 mb-4">
-                  Update your profile settings
+                  Manage your video content and replies
                 </p>
                 <Link
-                  to="/profile"
+                  to="/content"
                   className="bg-amber-700 hover:bg-amber-600 text-white px-4 py-2 rounded transition-colors inline-block"
                 >
-                  Edit Profile
+                  View Content
                 </Link>
               </div>
             </div>
@@ -65,11 +67,12 @@ export default function HomePage() {
         ) : (
           <div className="text-center py-20">
             <h1 className="text-5xl font-bold text-amber-900 mb-6">
-              Welcome to Our Platform
+              YouTube Comment Management Platform
             </h1>
             <p className="text-xl text-red-700 mb-8 max-w-2xl mx-auto">
-              Experience the best service with our secure and user-friendly
-              platform. Join thousands of satisfied users today.
+              Automate your YouTube comment responses with AI-powered replies.
+              Manage multiple channels, analyze video performance, and engage
+              with your audience efficiently.
             </p>
 
             <div className="space-x-4">
@@ -77,7 +80,7 @@ export default function HomePage() {
                 to="/signup"
                 className="bg-amber-900 hover:bg-amber-800 text-white font-semibold px-8 py-3 rounded-lg transition-colors inline-block"
               >
-                Get Started
+                Start Managing Comments
               </Link>
               <Link
                 to="/login"
@@ -90,38 +93,75 @@ export default function HomePage() {
             <div className="grid md:grid-cols-3 gap-8 mt-16 max-w-4xl mx-auto">
               <div className="bg-white rounded-lg shadow-lg p-8">
                 <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <div className="w-8 h-8 bg-amber-900 rounded-full"></div>
+                  <svg
+                    className="w-8 h-8 text-amber-900"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M7 4V2a1 1 0 011-1h8a1 1 0 011 1v2m-9 0h10m-10 0a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2"
+                    />
+                  </svg>
                 </div>
                 <h3 className="text-xl font-semibold text-amber-900 mb-3">
-                  Secure
+                  AI-Powered Replies
                 </h3>
                 <p className="text-red-700">
-                  Your data is protected with industry-standard security
-                  measures.
+                  Generate contextual comment replies using advanced AI
+                  technology.
                 </p>
               </div>
 
               <div className="bg-white rounded-lg shadow-lg p-8">
                 <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <div className="w-8 h-8 bg-red-800 rounded-full"></div>
+                  <svg
+                    className="w-8 h-8 text-red-800"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13 10V3L4 14h7v7l9-11h-7z"
+                    />
+                  </svg>
                 </div>
                 <h3 className="text-xl font-semibold text-amber-900 mb-3">
-                  Fast
+                  Automated Workflow
                 </h3>
                 <p className="text-red-700">
-                  Lightning-fast performance for all your needs.
+                  Streamline your comment management with automated response
+                  systems.
                 </p>
               </div>
 
               <div className="bg-white rounded-lg shadow-lg p-8">
                 <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <div className="w-8 h-8 bg-amber-700 rounded-full"></div>
+                  <svg
+                    className="w-8 h-8 text-amber-700"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                    />
+                  </svg>
                 </div>
                 <h3 className="text-xl font-semibold text-amber-900 mb-3">
-                  Reliable
+                  Analytics & Insights
                 </h3>
                 <p className="text-red-700">
-                  99.9% uptime guarantee for uninterrupted service.
+                  Track engagement metrics and optimize your comment strategy.
                 </p>
               </div>
             </div>

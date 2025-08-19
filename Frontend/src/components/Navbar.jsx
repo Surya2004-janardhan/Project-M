@@ -20,7 +20,7 @@ export default function Navbar() {
             to="/"
             className="bg-amber-900 p-2 text-white rounded hover:bg-amber-800 transition-colors"
           >
-            Logo
+            YT Manager
           </Link>
           <div className="flex gap-4">
             <Link
@@ -49,7 +49,7 @@ export default function Navbar() {
           to="/"
           className="bg-amber-900 p-2 text-white rounded hover:bg-amber-800 transition-colors"
         >
-          Logo
+          YT Manager
         </Link>
         <ul className="flex gap-5 font-bold">
           <li>
@@ -64,12 +64,22 @@ export default function Navbar() {
           </li>
           <li>
             <Link
+              to="/youtube"
+              className={`cursor-pointer hover:text-amber-900 transition-colors ${
+                location.pathname === "/youtube" ? "text-amber-900" : ""
+              }`}
+            >
+              YouTube
+            </Link>
+          </li>
+          <li>
+            <Link
               to="/content"
               className={`cursor-pointer hover:text-amber-900 transition-colors ${
                 location.pathname === "/content" ? "text-amber-900" : ""
               }`}
             >
-              My Content
+              Content
             </Link>
           </li>
           <li>
@@ -90,6 +100,16 @@ export default function Navbar() {
               }`}
             >
               Profile
+            </Link>
+          </li>
+          <li>
+            <Link
+              to="/admin"
+              className={`cursor-pointer hover:text-amber-900 transition-colors ${
+                location.pathname === "/admin" ? "text-amber-900" : ""
+              }`}
+            >
+              Admin
             </Link>
           </li>
         </ul>

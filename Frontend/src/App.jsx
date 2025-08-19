@@ -13,6 +13,8 @@ import SignupPage from "./pages/SignupPage";
 import ProfilePage from "./pages/ProfilePage";
 import ContentPage from "./pages/ContentPage";
 import UsagePage from "./pages/UsagePage";
+import YouTubeManagementPage from "./pages/YouTubeManagementPage";
+import AdminDashboard from "./pages/AdminDashboard";
 import "./App.css";
 
 // Protected Route Component
@@ -94,6 +96,22 @@ function AppContent() {
           element={
             <ProtectedRoute>
               <UsagePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/youtube"
+          element={
+            <ProtectedRoute>
+              <YouTubeManagementPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute>
+              <AdminDashboard />
             </ProtectedRoute>
           }
         />

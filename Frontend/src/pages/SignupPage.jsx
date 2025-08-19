@@ -8,6 +8,7 @@ export default function SignupPage() {
     email: "",
     password: "",
     confirmPassword: "",
+    channelLink: "",
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -34,7 +35,8 @@ export default function SignupPage() {
     const result = await register(
       formData.name,
       formData.email,
-      formData.password
+      formData.password,
+      formData.channelLink
     );
 
     if (result.success) {
@@ -59,7 +61,9 @@ export default function SignupPage() {
           <h1 className="text-3xl font-bold text-amber-900 mb-2">
             Create Account
           </h1>
-          <p className="text-red-700">Join us today and get started</p>
+          <p className="text-red-700">
+            Join our YouTube Comment Management Platform
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -91,6 +95,23 @@ export default function SignupPage() {
               className="w-full px-4 py-3 border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none transition-all"
               placeholder="Enter your email"
             />
+          </div>
+
+          <div>
+            <label className="block text-amber-900 font-semibold mb-2">
+              YouTube Channel Link (Optional)
+            </label>
+            <input
+              type="url"
+              name="channelLink"
+              value={formData.channelLink}
+              onChange={handleChange}
+              className="w-full px-4 py-3 border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none transition-all"
+              placeholder="https://youtube.com/channel/..."
+            />
+            <p className="text-sm text-red-600 mt-1">
+              Link your YouTube channel for comment management
+            </p>
           </div>
 
           <div>

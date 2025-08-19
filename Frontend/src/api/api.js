@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE_URL = "http://localhost:5000/";
+const API_BASE_URL = "http://localhost:5000";
 
 // Token management with localStorage
 export const tokenManager = {
@@ -16,6 +16,18 @@ export const tokenManager = {
     localStorage.removeItem("authToken");
   },
 
+  setUserId: (userId) => {
+    localStorage.setItem("userId", userId);
+  },
+
+  getUserId: () => {
+    return localStorage.getItem("userId");
+  },
+
+  removeUserId: () => {
+    localStorage.removeItem("userId");
+  },
+
   isTokenValid: () => {
     const token = localStorage.getItem("authToken");
     if (!token) return false;
@@ -27,7 +39,6 @@ export const tokenManager = {
 
       return payload.exp > currentTime;
     } catch (error) {
-      console.log(error.message);
       return false;
     }
   },
@@ -61,7 +72,7 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       tokenManager.removeToken();
-      // Don't redirect here, let the app handle it
+      tokenManager.removeUserId();
     }
     return Promise.reject(error);
   }
@@ -71,7 +82,14 @@ api.interceptors.response.use(
 export const authAPI = {
   login: async (email, password) => {
     try {
-      const response = await api.post("/auth/login", { email, password });
+      const response = await api.post("/login", { email, password });
+      if (response.data.token) {
+        return {
+          success: true,
+          token: response.data.token,
+          user: { ...response.data.user, name: email.split("@")[0] }, // Temporary name fallback
+        };
+      }
       return response.data;
     } catch (error) {
       return {
@@ -81,14 +99,19 @@ export const authAPI = {
     }
   },
 
-  register: async (name, email, password) => {
+  register: async (name, email, password, channelLink = "") => {
     try {
-      const response = await api.post("/auth/register", {
+      const response = await api.post("/singup", {
         name,
         email,
         password,
+        channelLink,
       });
-      return response.data;
+      if (response.status === 201) {
+        // After successful registration, login the user
+        return await authAPI.login(email, password);
+      }
+      return { success: true, message: response.data.message };
     } catch (error) {
       return {
         success: false,
@@ -97,14 +120,193 @@ export const authAPI = {
     }
   },
 
-  getProfile: async () => {
+  getProfile: async (userId) => {
     try {
-      const response = await api.get("/auth/profile");
-      return response.data;
+      const response = await api.get(`/user${userId}`);
+      return { success: true, user: response.data };
     } catch (error) {
       return {
         success: false,
         message: error.response?.data?.message || "Failed to get profile",
+      };
+    }
+  },
+};
+
+// YouTube API calls
+export const youtubeAPI = {
+  getChannelId: async (channelLink) => {
+    try {
+      const response = await api.post("/youtube/channelId", { channelLink });
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.response?.data?.message || "Failed to get channel ID",
+      };
+    }
+  },
+
+  getChannelData: async (channelId) => {
+    try {
+      const response = await api.post("/youtube/channelData", { channelId });
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.response?.data?.message || "Failed to get channel data",
+      };
+    }
+  },
+
+  getVideoId: async (videoLink) => {
+    try {
+      const response = await api.post("/youtube/videoId", { videoLink });
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.response?.data?.message || "Failed to get video ID",
+      };
+    }
+  },
+
+  getVideoData: async (videoId) => {
+    try {
+      const response = await api.post("/youtube/videoData", { videoId });
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.response?.data?.message || "Failed to get video data",
+      };
+    }
+  },
+
+  getComments: async (videoId, preference = "all") => {
+    try {
+      const response = await api.post(
+        `/youtube/comments?preference=${preference}`,
+        { videoId }
+      );
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.response?.data?.message || "Failed to get comments",
+      };
+    }
+  },
+
+  getLLMReply: async (videoContext, transcript, comment) => {
+    try {
+      const response = await api.post("/youtube/llmReply", {
+        videoContext,
+        transcript,
+        comment,
+      });
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.response?.data?.message || "Failed to generate reply",
+      };
+    }
+  },
+};
+
+// User Data API calls
+export const userAPI = {
+  getUserData: async (userId) => {
+    try {
+      const response = await api.get(`/user${userId}`);
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.response?.data?.message || "Failed to get user data",
+      };
+    }
+  },
+
+  getPreviousData: async (userId) => {
+    try {
+      const response = await api.get(`/user/previous/${userId}`);
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.response?.data?.message || "Failed to get previous data",
+      };
+    }
+  },
+
+  insertData: async (userId, data) => {
+    try {
+      const response = await api.post(`/user/insertData/${userId}`, { data });
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.response?.data?.message || "Failed to insert data",
+      };
+    }
+  },
+
+  getCommentsData: async (userId) => {
+    try {
+      const response = await api.get(`/user/commentsData/${userId}`);
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.response?.data?.message || "Failed to get comments data",
+      };
+    }
+  },
+};
+
+// OAuth API calls
+export const oauthAPI = {
+  initiateGoogleOAuth: () => {
+    window.location.href = `${API_BASE_URL}/oauth/google`;
+  },
+};
+
+// Admin API calls
+export const adminAPI = {
+  getAdminData: async () => {
+    try {
+      const response = await api.get("/user/admin/");
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.response?.data?.message || "Access denied",
+      };
+    }
+  },
+
+  getAllUsers: async () => {
+    try {
+      const response = await api.get("/user/admin/users");
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.response?.data?.message || "Failed to get users",
+      };
+    }
+  },
+
+  getUserById: async (userId) => {
+    try {
+      const response = await api.get(`/user/admin/user/${userId}`);
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.response?.data?.message || "Failed to get user",
       };
     }
   },

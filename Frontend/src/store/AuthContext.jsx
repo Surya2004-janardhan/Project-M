@@ -17,24 +17,29 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const token = tokenManager.getToken();
-    if (token && tokenManager.isTokenValid()) {
+    const userId = tokenManager.getUserId();
+
+    if (token && userId && tokenManager.isTokenValid()) {
       authAPI
-        .getProfile()
+        .getProfile(userId)
         .then((data) => {
           if (data.success) {
             setUser(data.user);
           } else {
             tokenManager.removeToken();
+            tokenManager.removeUserId();
           }
         })
         .catch(() => {
           tokenManager.removeToken();
+          tokenManager.removeUserId();
         })
         .finally(() => {
           setLoading(false);
         });
     } else {
       tokenManager.removeToken();
+      tokenManager.removeUserId();
       setLoading(false);
     }
   }, []);
@@ -44,31 +49,36 @@ export const AuthProvider = ({ children }) => {
       const data = await authAPI.login(email, password);
       if (data.success) {
         tokenManager.setToken(data.token);
+        tokenManager.setUserId(data.user.id);
         setUser(data.user);
         return { success: true };
       }
       return { success: false, message: data.message };
-    } catch (error) {
-      return { success: false, message: `Login failed${error.message}` };
+    } catch {
+      return { success: false, message: "Login failed" };
     }
   };
 
-  const register = async (name, email, password) => {
+  const register = async (name, email, password, channelLink = "") => {
     try {
-      const data = await authAPI.register(name, email, password);
+      const data = await authAPI.register(name, email, password, channelLink);
       if (data.success) {
-        tokenManager.setToken(data.token);
-        setUser(data.user);
+        if (data.token) {
+          tokenManager.setToken(data.token);
+          tokenManager.setUserId(data.user.id);
+          setUser(data.user);
+        }
         return { success: true };
       }
       return { success: false, message: data.message };
-    } catch (error) {
-      return { success: false, message: `Registration failed${error.message}` };
+    } catch {
+      return { success: false, message: "Registration failed" };
     }
   };
 
   const logout = () => {
     tokenManager.removeToken();
+    tokenManager.removeUserId();
     setUser(null);
   };
 
