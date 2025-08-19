@@ -7,6 +7,7 @@ import {
 } from "react-router-dom";
 import { AuthProvider, useAuth } from "./store/AuthContext";
 import Navbar from "./components/Navbar";
+import PageTransition from "./components/PageTransition";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
@@ -18,116 +19,133 @@ import AdminDashboard from "./pages/AdminDashboard";
 import "./App.css";
 
 // Protected Route Component
-function ProtectedRoute({ children }) {
+const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 to-red-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-amber-900 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-amber-900 font-semibold">Loading...</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-16 h-16 border-4 border-amber-900 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
 
   return user ? children : <Navigate to="/login" replace />;
-}
+};
 
-// Public Route Component (redirects authenticated users)
-function PublicRoute({ children }) {
+// Public Route Component
+const PublicRoute = ({ children }) => {
   const { user, loading } = useAuth();
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 to-red-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-amber-900 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-amber-900 font-semibold">Loading...</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-16 h-16 border-4 border-amber-900 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
 
   return user ? <Navigate to="/" replace /> : children;
-}
+};
 
 function AppContent() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-red-50">
-      <Navbar />
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route
-          path="/login"
-          element={
-            <PublicRoute>
-              <LoginPage />
-            </PublicRoute>
-          }
-        />
-        <Route
-          path="/signup"
-          element={
-            <PublicRoute>
-              <SignupPage />
-            </PublicRoute>
-          }
-        />
-        <Route
-          path="/profile"
-          element={
-            <ProtectedRoute>
-              <ProfilePage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/content"
-          element={
-            <ProtectedRoute>
-              <ContentPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/usage"
-          element={
-            <ProtectedRoute>
-              <UsagePage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/youtube"
-          element={
-            <ProtectedRoute>
-              <YouTubeManagementPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin"
-          element={
-            <ProtectedRoute>
-              <AdminDashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+    <div className="min-h-screen">
+      <div className="max-w-[80vw] mx-auto">
+        <Navbar />
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <PageTransition>
+                <HomePage />
+              </PageTransition>
+            }
+          />
+          <Route
+            path="/login"
+            element={
+              <PublicRoute>
+                <PageTransition>
+                  <LoginPage />
+                </PageTransition>
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/signup"
+            element={
+              <PublicRoute>
+                <PageTransition>
+                  <SignupPage />
+                </PageTransition>
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <PageTransition>
+                  <ProfilePage />
+                </PageTransition>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/content"
+            element={
+              <ProtectedRoute>
+                <PageTransition>
+                  <ContentPage />
+                </PageTransition>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/usage"
+            element={
+              <ProtectedRoute>
+                <PageTransition>
+                  <UsagePage />
+                </PageTransition>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/youtube"
+            element={
+              <ProtectedRoute>
+                <PageTransition>
+                  <YouTubeManagementPage />
+                </PageTransition>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute>
+                <PageTransition>
+                  <AdminDashboard />
+                </PageTransition>
+              </ProtectedRoute>
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </div>
     </div>
   );
 }
 
 function App() {
   return (
-    <Router>
-      <AuthProvider>
+    <AuthProvider>
+      <Router>
         <AppContent />
-      </AuthProvider>
-    </Router>
+      </Router>
+    </AuthProvider>
   );
 }
 

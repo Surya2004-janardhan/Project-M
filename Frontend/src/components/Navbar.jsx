@@ -18,14 +18,14 @@ export default function Navbar() {
         <div className="flex justify-between py-4 items-center w-full h-full text-red-800 px-6">
           <Link
             to="/"
-            className="bg-amber-900 p-2 text-white rounded hover:bg-amber-800 transition-colors"
+            className="bg-red-800 hover:bg-red-700 p-2 text-white rounded transition-colors"
           >
             YT Manager
           </Link>
           <div className="flex gap-4">
             <Link
               to="/login"
-              className="bg-amber-900 hover:bg-amber-800 p-2 text-white rounded transition-colors"
+              className="bg-red-800 hover:bg-red-700 p-2 text-white rounded transition-colors"
             >
               Login
             </Link>
@@ -51,12 +51,14 @@ export default function Navbar() {
         >
           YT Manager
         </Link>
-        <ul className="flex gap-5 font-bold">
+        <ul className="flex gap-5 font-bold relative">
           <li>
             <Link
               to="/"
-              className={`cursor-pointer hover:text-amber-900 transition-colors ${
-                location.pathname === "/" ? "text-amber-900" : ""
+              className={`cursor-pointer transition-all duration-300 px-3 py-2 rounded-lg ${
+                location.pathname === "/"
+                  ? "text-white bg-amber-900 shadow-lg"
+                  : "text-red-800 hover:text-amber-900 hover:bg-amber-100"
               }`}
             >
               Home
@@ -65,8 +67,10 @@ export default function Navbar() {
           <li>
             <Link
               to="/youtube"
-              className={`cursor-pointer hover:text-amber-900 transition-colors ${
-                location.pathname === "/youtube" ? "text-amber-900" : ""
+              className={`cursor-pointer transition-all duration-300 px-3 py-2 rounded-lg ${
+                location.pathname === "/youtube"
+                  ? "text-white bg-amber-900 shadow-lg"
+                  : "text-red-800 hover:text-amber-900 hover:bg-amber-100"
               }`}
             >
               YouTube
@@ -75,8 +79,10 @@ export default function Navbar() {
           <li>
             <Link
               to="/content"
-              className={`cursor-pointer hover:text-amber-900 transition-colors ${
-                location.pathname === "/content" ? "text-amber-900" : ""
+              className={`cursor-pointer transition-all duration-300 px-3 py-2 rounded-lg ${
+                location.pathname === "/content"
+                  ? "text-white bg-amber-900 shadow-lg"
+                  : "text-red-800 hover:text-amber-900 hover:bg-amber-100"
               }`}
             >
               Content
@@ -85,8 +91,10 @@ export default function Navbar() {
           <li>
             <Link
               to="/usage"
-              className={`cursor-pointer hover:text-amber-900 transition-colors ${
-                location.pathname === "/usage" ? "text-amber-900" : ""
+              className={`cursor-pointer transition-all duration-300 px-3 py-2 rounded-lg ${
+                location.pathname === "/usage"
+                  ? "text-white bg-amber-900 shadow-lg"
+                  : "text-red-800 hover:text-amber-900 hover:bg-amber-100"
               }`}
             >
               Usage
@@ -95,8 +103,10 @@ export default function Navbar() {
           <li>
             <Link
               to="/profile"
-              className={`cursor-pointer hover:text-amber-900 transition-colors ${
-                location.pathname === "/profile" ? "text-amber-900" : ""
+              className={`cursor-pointer transition-all duration-300 px-3 py-2 rounded-lg ${
+                location.pathname === "/profile"
+                  ? "text-white bg-amber-900 shadow-lg"
+                  : "text-red-800 hover:text-amber-900 hover:bg-amber-100"
               }`}
             >
               Profile
@@ -105,8 +115,10 @@ export default function Navbar() {
           <li>
             <Link
               to="/admin"
-              className={`cursor-pointer hover:text-amber-900 transition-colors ${
-                location.pathname === "/admin" ? "text-amber-900" : ""
+              className={`cursor-pointer transition-all duration-300 px-3 py-2 rounded-lg ${
+                location.pathname === "/admin"
+                  ? "text-white bg-amber-900 shadow-lg"
+                  : "text-red-800 hover:text-amber-900 hover:bg-amber-100"
               }`}
             >
               Admin
@@ -114,9 +126,9 @@ export default function Navbar() {
           </li>
         </ul>
         <div className="flex items-center gap-3">
-          <span className="text-amber-900 font-semibold">
+          {/* <span className="text-amber-900 font-semibold">
             Welcome, {user.name}
-          </span>
+          </span> */}
           <button
             onClick={handleLogout}
             className="bg-amber-900 hover:bg-amber-800 p-2 text-white rounded transition-colors"

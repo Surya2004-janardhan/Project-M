@@ -272,6 +272,18 @@ export const oauthAPI = {
   initiateGoogleOAuth: () => {
     window.location.href = `${API_BASE_URL}/oauth/google`;
   },
+
+  associateOAuthData: async (oauthData) => {
+    const response = await fetch(`${API_BASE_URL}/oauth/associate`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${tokenManager.getToken()}`,
+      },
+      body: JSON.stringify({ oauthData }),
+    });
+    return response.json();
+  },
 };
 
 // Admin API calls

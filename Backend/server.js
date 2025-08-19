@@ -7,21 +7,24 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const port = process.env.PORT || 5000;
 const helmet = require("helmet");
-const mongoSanitize = require("express-mongo-sanitize");
-app.use(helmet());
-app.use(mongoSanitize());
+// const mongoSanitize = require("express-mongo-sanitize");
 
 require("dotenv").config({ override: true });
 const User = require("./models/User"); // Adjust the path as necessary
 const connectToDb = require("./config/db");
 connectToDb();
 const middleware = require("./middleware/authMiddleware"); // Adjust the path as necessary
+
+app.use(helmet());
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+// app.use(mongoSanitize());
+
 app.get("/", (req, res) => {
   res.send("Hy admin , this is our server home route!");
 });
+
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });
@@ -82,7 +85,7 @@ app.post("/singup", async (req, res) => {
   }
 });
 
-app.get("/user:id", middleware, async (req, res) => {
+app.get("/user/:id", middleware, async (req, res) => {
   try {
     const userId = req.params.id;
     if (!userId) {
@@ -109,6 +112,7 @@ app.get("/user:id", middleware, async (req, res) => {
       channelLink: user.channelLink,
       email: user.email,
       previousData: user.previousData || [],
+      oauthData: user.oauthData || {},
     });
   } catch (error) {
     console.error("Error fetching user:", error);
@@ -169,70 +173,151 @@ app.post("/user/insertData/:id", middleware, async (req, res) => {
 
 // oauth gmail integration for user inside the side so that youtube can be accessed to them using API
 app.get("/oauth/google", (req, res) => {
-  // This route should redirect to Google's OAuth consent page
-  const redirectUri = `https://accounts.google.com/o/oauth2/auth?client_id=${process.env.GOOGLE_CLIENT_ID}&redirect_uri=${process.env.GOOGLE_REDIRECT_URI}&response_type=code&scope=email profile`;
+  // This route should redirect to Google's OAuth consent page with YouTube scope
+  const scopes = [
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/userinfo.profile",
+    "https://www.googleapis.com/auth/youtube.readonly",
+    "https://www.googleapis.com/auth/youtube.force-ssl",
+  ];
+
+  const redirectUri =
+    `https://accounts.google.com/o/oauth2/v2/auth?` +
+    `client_id=${process.env.GOOGLE_CLIENT_ID}&` +
+    `redirect_uri=${process.env.GOOGLE_REDIRECT_URI}&` +
+    `response_type=code&` +
+    `scope=${encodeURIComponent(scopes.join(" "))}&` +
+    `access_type=offline&` +
+    `prompt=consent`;
+
   res.redirect(redirectUri);
 });
 
-app.get("/oauth/google/callback", middleware, async (req, res) => {
+app.get("/oauth/google/callback", async (req, res) => {
   // This route handles the callback from Google after user consent
-  const { code } = req.query;
-  const userEmail = req.user.email; // Get the user from the middleware
+  const { code, error } = req.query;
+
+  if (error) {
+    return res.status(400).json({ message: `OAuth error: ${error}` });
+  }
+
   if (!code) {
     return res.status(400).json({ message: "Authorization code is required" });
   }
 
   try {
     // Exchange the authorization code for access token
-    const tokenResponse = await fetch(
-      `https://oauth2.googleapis.com/token?client_id=${process.env.GOOGLE_CLIENT_ID}&client_secret=${process.env.GOOGLE_CLIENT_SECRET}&redirect_uri=${process.env.GOOGLE_REDIRECT_URI}&grant_type=authorization_code&code=${code}`,
-      {
-        method: "POST",
-      }
-    );
+    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        client_id: process.env.GOOGLE_CLIENT_ID,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET,
+        code: code,
+        grant_type: "authorization_code",
+        redirect_uri: process.env.GOOGLE_REDIRECT_URI,
+      }),
+    });
+
     const tokenData = await tokenResponse.json();
+
     if (tokenData.error) {
-      return res.status(400).json({ message: tokenData.error_description });
+      return res.status(400).json({
+        message: tokenData.error_description || tokenData.error,
+      });
     }
 
     // Use the access token to fetch user info
     const userInfoResponse = await fetch(
-      "https://www.googleapis.com/oauth2/v1/userinfo?alt=json",
+      "https://www.googleapis.com/oauth2/v2/userinfo",
       {
         headers: {
           Authorization: `Bearer ${tokenData.access_token}`,
         },
       }
     );
+
     const userInfo = await userInfoResponse.json();
+
     if (userInfo.error) {
       return res.status(400).json({ message: userInfo.error.message });
     }
-    // Save user info to the database or update existing user
-    const existingUser = await User.findOne({ email: userEmail });
-    if (existingUser) {
-      // Update existing user with OAuth data
-      existingUser.oauthData = {
-        googleId: userInfo.id,
-        name: userInfo.name,
-        email: userInfo.email,
-        picture: userInfo.picture,
-        accessToken: tokenData.access_token,
-        refreshToken: tokenData.refresh_token,
-        expiresIn: tokenData.expires_in,
-        scope: tokenData.scope,
-        tokenType: tokenData.token_type,
-      };
-      await existingUser.save();
-    } else {
-      // Create a new user with OAuth data
-      res.status;
-    }
 
-    // Here you can save the user info to your database or create a session
-    res.status(200).json({ message: "OAuth successful", userInfo });
+    // For demo purposes, we'll store this in a temporary session
+    // In production, you'd want to associate this with a logged-in user
+    const oauthData = {
+      googleId: userInfo.id,
+      name: userInfo.name,
+      email: userInfo.email,
+      picture: userInfo.picture,
+      accessToken: tokenData.access_token,
+      refreshToken: tokenData.refresh_token,
+      expiresIn: tokenData.expires_in,
+      scope: tokenData.scope,
+      tokenType: tokenData.token_type,
+      connectedAt: new Date(),
+    };
+
+    // Redirect to frontend with success message
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+    res.redirect(
+      `${frontendUrl}?oauth=success&data=${encodeURIComponent(
+        JSON.stringify({
+          message: "YouTube OAuth successful",
+          user: {
+            name: userInfo.name,
+            email: userInfo.email,
+            picture: userInfo.picture,
+          },
+        })
+      )}`
+    );
   } catch (error) {
     console.error("OAuth error:", error);
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+    res.redirect(
+      `${frontendUrl}?oauth=error&message=${encodeURIComponent(
+        "OAuth authentication failed"
+      )}`
+    );
+  }
+});
+
+// New endpoint to associate OAuth data with logged-in user
+app.post("/oauth/associate", middleware, async (req, res) => {
+  try {
+    const { oauthData } = req.body;
+    const userEmail = req.user.email;
+
+    if (!userEmail) {
+      return res.status(401).json({ message: "Unauthorized user" });
+    }
+
+    if (!oauthData) {
+      return res.status(400).json({ message: "OAuth data is required" });
+    }
+
+    const existingUser = await User.findOne({ email: userEmail });
+    if (!existingUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Update existing user with OAuth data
+    existingUser.oauthData = oauthData;
+    await existingUser.save();
+
+    res.status(200).json({
+      message: "YouTube account successfully connected",
+      user: {
+        name: existingUser.name,
+        email: existingUser.email,
+        oauthConnected: true,
+      },
+    });
+  } catch (error) {
+    console.error("OAuth association error:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 });

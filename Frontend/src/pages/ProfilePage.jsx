@@ -24,7 +24,7 @@ export default function ProfilePage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 to-red-50 flex items-center justify-center">
+      <div className="py-16 flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-amber-900 mb-4">
             Access Denied
@@ -36,8 +36,8 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-red-50 py-8">
-      <div className="container mx-auto px-6">
+    <div className="py-8">
+      <div className="px-6">
         <div className="max-w-2xl mx-auto">
           <div className="bg-white rounded-lg shadow-xl p-8">
             <div className="text-center mb-8">
