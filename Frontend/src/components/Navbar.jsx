@@ -15,7 +15,7 @@ export default function Navbar() {
   if (!user) {
     return (
       <navbar>
-        <div className="flex justify-between mt-2 items-center w-full h-full text-red-800 px-6">
+        <div className="flex justify-between py-4 items-center w-full h-full text-red-800 px-6">
           <Link
             to="/"
             className="bg-amber-900 p-2 text-white rounded hover:bg-amber-800 transition-colors"
@@ -37,14 +37,14 @@ export default function Navbar() {
             </Link>
           </div>
         </div>
-        <hr className="mt-5 text-amber-950" />
+        <hr className=" text-amber-950" />
       </navbar>
     );
   }
 
   return (
     <navbar>
-      <div className="flex justify-around mt-2 items-center w-full h-full text-red-800">
+      <div className="flex justify-around py-4 items-center w-full h-full text-red-800">
         <Link
           to="/"
           className="bg-amber-900 p-2 text-white rounded hover:bg-amber-800 transition-colors"
@@ -125,7 +125,7 @@ export default function Navbar() {
           </button>
         </div>
       </div>
-      <hr className="mt-5 text-amber-950" />
+      <hr className="text-amber-950" />
     </navbar>
   );
 }

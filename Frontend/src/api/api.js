@@ -39,6 +39,7 @@ export const tokenManager = {
 
       return payload.exp > currentTime;
     } catch (error) {
+      console.log(error.message);
       return false;
     }
   },

@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useAuth } from "../store/AuthContext";
-import { youtubeAPI, oauthAPI, tokenManager } from "../api/api";
+import { youtubeAPI, oauthAPI } from "../api/api";
 
 export default function YouTubeManagementPage() {
   const { user } = useAuth();
@@ -65,6 +65,7 @@ export default function YouTubeManagementPage() {
         setError(channelDataResult.message);
       }
     } catch (err) {
+        console.log(err.message);
       setError("Failed to analyze channel");
     } finally {
       setLoading(false);
@@ -99,6 +100,7 @@ export default function YouTubeManagementPage() {
         setError(videoDataResult.message);
       }
     } catch (err) {
+        console.log(err.message);
       setError("Failed to analyze video");
     } finally {
       setLoading(false);
@@ -126,6 +128,7 @@ export default function YouTubeManagementPage() {
         setError(commentsResult.message);
       }
     } catch (err) {
+        console.log(err.message);
       setError("Failed to get comments");
     } finally {
       setLoading(false);
@@ -154,6 +157,7 @@ export default function YouTubeManagementPage() {
         setError(replyResult.message);
       }
     } catch (err) {
+        console.log(err.message);
       setError("Failed to generate reply");
     } finally {
       setLoading(false);
@@ -171,7 +175,7 @@ export default function YouTubeManagementPage() {
     });
   };
 
-  const TabButton = ({ tabKey, label, isActive, onClick }) => (
+  const TabButton = ({  label, isActive, onClick }) => (
     <button
       onClick={onClick}
       className={`px-4 py-2 rounded-lg transition-colors ${
