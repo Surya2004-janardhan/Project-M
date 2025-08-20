@@ -109,6 +109,34 @@ const oauthController = {
         );
       }
 
+      console.log("Fetching user's YouTube channels...");
+      // Fetch user's YouTube channels
+      const channelsResponse = await fetch(
+        "https://www.googleapis.com/youtube/v3/channels?part=snippet,contentDetails,statistics&mine=true",
+        {
+          headers: {
+            Authorization: `Bearer ${tokenData.access_token}`,
+          },
+        }
+      );
+
+      const channelsData = await channelsResponse.json();
+      console.log("Channels data:", channelsData);
+
+      let userChannels = [];
+      if (channelsData.items && channelsData.items.length > 0) {
+        userChannels = channelsData.items.map((channel) => ({
+          channelId: channel.id,
+          channelTitle: channel.snippet.title,
+          channelDescription: channel.snippet.description,
+          channelThumbnail: channel.snippet.thumbnails?.default?.url,
+          channelUrl: `https://www.youtube.com/channel/${channel.id}`,
+          subscriberCount: channel.statistics?.subscriberCount || "0",
+          videoCount: channel.statistics?.videoCount || "0",
+          viewCount: channel.statistics?.viewCount || "0",
+        }));
+      }
+
       // For demo purposes, we'll store this in a temporary session
       // In production, you'd want to associate this with a logged-in user
       const oauthData = {
@@ -122,6 +150,7 @@ const oauthController = {
         scope: tokenData.scope,
         tokenType: tokenData.token_type,
         connectedAt: new Date(),
+        channels: userChannels, // Add channels to OAuth data
       };
 
       console.log("OAuth data prepared:", oauthData);
@@ -166,6 +195,16 @@ const oauthController = {
 
       // Update existing user with OAuth data
       existingUser.oauthData = oauthData;
+
+      // If user has channels, update their channel link with the first channel
+      if (oauthData.channels && oauthData.channels.length > 0) {
+        const primaryChannel = oauthData.channels[0]; // Use first channel as primary
+        existingUser.channelLink = primaryChannel.channelUrl;
+        console.log(
+          `Updated user channel link to: ${primaryChannel.channelUrl}`
+        );
+      }
+
       await existingUser.save();
 
       res.status(200).json({
@@ -173,8 +212,10 @@ const oauthController = {
         user: {
           name: existingUser.name,
           email: existingUser.email,
+          channelLink: existingUser.channelLink,
           oauthConnected: true,
         },
+        channels: oauthData.channels || [],
       });
     } catch (error) {
       console.error("OAuth association error:", error);

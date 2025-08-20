@@ -22,5 +22,6 @@ router.post(
   middleware,
   youtubeController.generateLLMReply
 );
+router.get("/youtube/channels", middleware, youtubeController.getUserChannels);
 
 module.exports = router;

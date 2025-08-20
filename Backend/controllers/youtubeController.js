@@ -192,6 +192,89 @@ const youtubeController = {
       res.status(500).json({ message: "Internal Server Error" });
     }
   },
+
+  // Get user's YouTube channels from OAuth data
+  getUserChannels: async (req, res) => {
+    try {
+      const userEmail = req.user.email;
+      if (!userEmail) {
+        return res.status(401).json({ message: "Unauthorized user" });
+      }
+
+      const existingUser = await User.findOne({ email: userEmail });
+      if (!existingUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      if (!existingUser.oauthData || !existingUser.oauthData.accessToken) {
+        return res
+          .status(400)
+          .json({
+            message:
+              "YouTube not connected. Please connect your YouTube account first.",
+          });
+      }
+
+      // Check if channels are already stored in OAuth data
+      if (
+        existingUser.oauthData.channels &&
+        existingUser.oauthData.channels.length > 0
+      ) {
+        return res.status(200).json({
+          channels: existingUser.oauthData.channels,
+          message: "Channels fetched from stored data",
+        });
+      }
+
+      // If not stored, fetch from YouTube API
+      const channelsResponse = await fetch(
+        "https://www.googleapis.com/youtube/v3/channels?part=snippet,contentDetails,statistics&mine=true",
+        {
+          headers: {
+            Authorization: `Bearer ${existingUser.oauthData.accessToken}`,
+          },
+        }
+      );
+
+      const channelsData = await channelsResponse.json();
+
+      if (channelsData.error) {
+        return res.status(400).json({ message: channelsData.error.message });
+      }
+
+      let userChannels = [];
+      if (channelsData.items && channelsData.items.length > 0) {
+        userChannels = channelsData.items.map((channel) => ({
+          channelId: channel.id,
+          channelTitle: channel.snippet.title,
+          channelDescription: channel.snippet.description,
+          channelThumbnail: channel.snippet.thumbnails?.default?.url,
+          channelUrl: `https://www.youtube.com/channel/${channel.id}`,
+          subscriberCount: channel.statistics?.subscriberCount || "0",
+          videoCount: channel.statistics?.videoCount || "0",
+          viewCount: channel.statistics?.viewCount || "0",
+        }));
+
+        // Update OAuth data with channels
+        existingUser.oauthData.channels = userChannels;
+
+        // Update user's channel link if not set
+        if (!existingUser.channelLink && userChannels.length > 0) {
+          existingUser.channelLink = userChannels[0].channelUrl;
+        }
+
+        await existingUser.save();
+      }
+
+      res.status(200).json({
+        channels: userChannels,
+        message: "Channels fetched successfully",
+      });
+    } catch (error) {
+      console.error("Error fetching user channels:", error);
+      res.status(500).json({ message: "Internal Server Error" });
+    }
+  },
 };
 
 module.exports = youtubeController;
