@@ -1,7 +1,25 @@
-import React, { useState, useEffect } from "react";
+import React,  const getToken = () => localStorage.getItem('token');
+
+  // Fetch user's YouTube channels
+  const fetchUserChannels = async () => {
+    try {
+      const response = await fetch("http://localhost:5000/youtube/channels", {
+        headers: {
+          "Authorization": `Bearer ${getToken()}`,
+        },
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setUserChannels(result.channels || []);
+        console.log("Fetched user channels:", result.channels);
+      }
+    } catch (error) {
+      console.error("Error fetching channels:", error);
+    }
+  };{ useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../store/AuthContext";
-import { userAPI, tokenManager } from "../api/api";
 
 export default function HomePage() {
   const { user } = useAuth();
@@ -9,11 +27,24 @@ export default function HomePage() {
   const [loading, setLoading] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
   const [oauthMessage, setOauthMessage] = useState("");
+  const [userChannels, setUserChannels] = useState([]);
+
+  // Simple token utilities
+  const getToken = () => localStorage.getItem("token");
+  const getUserIdFromToken = () => {
+    const token = getToken();
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        return payload.id;
+      } catch (error) {
+        return null;
+      }
+    }
+    return null;
+  };
 
   useEffect(() => {
-    // First check if JWT token exists (user authentication)
-    const jwtToken = localStorage.getItem("token");
-
     // Check for OAuth redirect first
     const urlParams = new URLSearchParams(window.location.search);
     const oauthSuccess = urlParams.get("oauth_success");
@@ -26,9 +57,9 @@ export default function HomePage() {
         const parsedData = JSON.parse(decodeURIComponent(oauthData));
         localStorage.setItem("youtube_oauth_data", JSON.stringify(parsedData));
 
-        // Restore JWT token if it was backed up
+        // Restore token if it was backed up
         const backupToken = sessionStorage.getItem("auth_token_backup");
-        if (backupToken && !jwtToken) {
+        if (backupToken && !getToken()) {
           localStorage.setItem("token", backupToken);
         }
 
@@ -49,7 +80,16 @@ export default function HomePage() {
         setTimeout(() => setOauthMessage(""), 3000);
 
         // Also save to backend
-        associateOAuthWithUser(parsedData);
+        const result = await associateOAuthWithUser(parsedData);
+        
+        // If channels are included in the response, update state
+        if (result && result.channels) {
+          setUserChannels(result.channels);
+          console.log("User channels:", result.channels);
+        }
+        
+        // Fetch channels after OAuth connection
+        fetchUserChannels();
       } catch (error) {
         console.error("Error processing OAuth:", error);
         setOauthMessage("Error processing YouTube connection");
@@ -61,12 +101,11 @@ export default function HomePage() {
       setTimeout(() => setOauthMessage(""), 5000);
     }
 
-    // Check if user is authenticated (JWT exists)
-    if (localStorage.getItem("token")) {
+    // Check if user is authenticated (token exists)
+    if (getToken()) {
       // User is logged in, check YouTube connection status
       checkYouTubeConnection();
     }
-    // If no JWT token exists, AuthContext will redirect to login
   }, [user]);
 
   const associateOAuthWithUser = async (oauthData) => {
@@ -74,12 +113,12 @@ export default function HomePage() {
       console.log("Associating OAuth data with user:", oauthData);
 
       // Also save to backend if user is logged in
-      if (tokenManager.getToken()) {
+      if (getToken()) {
         const response = await fetch("http://localhost:5000/oauth/associate", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${tokenManager.getToken()}`,
+            Authorization: `Bearer ${getToken()}`,
           },
           body: JSON.stringify({ oauthData }),
         });
@@ -89,11 +128,13 @@ export default function HomePage() {
 
         if (result.message) {
           console.log("OAuth data successfully saved to backend");
+          return result; // Return the result so we can access channels
         }
       }
     } catch (error) {
       console.error("Error associating OAuth data:", error);
     }
+    return null;
   };
 
   const checkYouTubeConnection = async () => {
@@ -124,17 +165,30 @@ export default function HomePage() {
       }
 
       // Check backend as fallback
-      const userId = tokenManager.getUserId();
+      const userId = getUserIdFromToken();
       if (userId) {
-        const result = await userAPI.getUserData(userId);
-        if (result.success) {
-          setUserProfile(result.data);
-          // Check if user has OAuth data indicating YouTube connection
+        const response = await fetch(`http://localhost:5000/user/${userId}`, {
+          headers: {
+            Authorization: `Bearer ${getToken()}`,
+          },
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          setUserProfile(result);
           setIsYouTubeConnected(
-            result.data.oauthData &&
-              Object.keys(result.data.oauthData).length > 0 &&
-              result.data.oauthData.googleId
+            result.oauthData &&
+              Object.keys(result.oauthData).length > 0 &&
+              result.oauthData.googleId
           );
+          
+          // If user is connected and has channels in oauthData, set them
+          if (result.oauthData && result.oauthData.channels) {
+            setUserChannels(result.oauthData.channels);
+          } else if (result.oauthData && result.oauthData.googleId) {
+            // If connected but no channels stored, fetch them
+            await fetchUserChannels();
+          }
         }
       }
     } catch (error) {
@@ -189,25 +243,64 @@ export default function HomePage() {
               </h3>
               <div className="flex items-center justify-center gap-4">
                 {isYouTubeConnected ? (
-                  <div className="flex items-center gap-2 text-green-600">
-                    <svg
-                      className="w-6 h-6"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                    <span className="font-semibold">Connected to YouTube</span>
-                    {userProfile?.oauthData?.email && (
-                      <span className="text-sm text-gray-600">
-                        ({userProfile.oauthData.email})
-                      </span>
+                  <div className="text-center w-full">
+                    <div className="flex items-center gap-2 text-green-600 justify-center mb-4">
+                      <svg
+                        className="w-6 h-6"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                      <span className="font-semibold">Connected to YouTube</span>
+                      {userProfile?.oauthData?.email && (
+                        <span className="text-sm text-gray-600">
+                          ({userProfile.oauthData.email})
+                        </span>
+                      )}
+                    </div>
+                    
+                    {/* Display user channels */}
+                    {userChannels.length > 0 && (
+                      <div className="mt-4">
+                        <h4 className="text-lg font-medium text-amber-800 mb-2">Your Channels:</h4>
+                        <div className="space-y-2">
+                          {userChannels.map((channel, index) => (
+                            <div key={channel.channelId} className="bg-gray-50 p-3 rounded-lg">
+                              <div className="flex items-center gap-3">
+                                {channel.channelThumbnail && (
+                                  <img 
+                                    src={channel.channelThumbnail} 
+                                    alt={channel.channelTitle}
+                                    className="w-8 h-8 rounded-full"
+                                  />
+                                )}
+                                <div className="flex-1 text-left">
+                                  <p className="font-medium text-amber-900">{channel.channelTitle}</p>
+                                  <p className="text-sm text-gray-600">
+                                    {parseInt(channel.subscriberCount).toLocaleString()} subscribers • {" "}
+                                    {parseInt(channel.videoCount).toLocaleString()} videos
+                                  </p>
+                                </div>
+                                <a 
+                                  href={channel.channelUrl} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="text-red-600 hover:text-red-700 text-sm"
+                                >
+                                  View Channel
+                                </a>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     )}
                   </div>
                 ) : (
@@ -221,7 +314,7 @@ export default function HomePage() {
                         setOauthMessage("Redirecting to Google OAuth...");
 
                         // Store current authentication state
-                        const currentToken = localStorage.getItem("token");
+                        const currentToken = getToken();
                         const userEmail = user?.email;
 
                         if (currentToken) {
