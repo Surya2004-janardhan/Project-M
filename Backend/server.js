@@ -8,6 +8,7 @@ const jwt = require("jsonwebtoken");
 const port = process.env.PORT || 5000;
 const helmet = require("helmet");
 // const mongoSanitize = require("express-mongo-sanitize");
+const { google } = require("googleapis");
 
 require("dotenv").config({ override: true });
 const User = require("./models/User"); // Adjust the path as necessary
@@ -40,20 +41,91 @@ app.post("/login", async (req, res) => {
     if (!isMatch) {
       return res.status(401).json({ message: "Invalid Credentails" });
     }
-    const generateAuthToken = async (email) => {
-      const token = await jwt.sign({ email: email }, process.env.JWT_SECRET, {
-        expiresIn: "1h",
+    
+    // Generate tokens
+    const generateAccessToken = (email, userId) => {
+      return jwt.sign({ email: email, id: userId }, process.env.JWT_SECRET, {
+        expiresIn: "15m", // Short-lived access token
       });
-      return token;
     };
 
-    const token = await generateAuthToken(email);
+    const generateRefreshToken = (email, userId) => {
+      return jwt.sign({ email: email, id: userId }, process.env.JWT_SECRET, {
+        expiresIn: "30d", // Long-lived refresh token
+      });
+    };
 
-    res.status(200).json({ token, user: { id: user._id, email: user.email } });
+    const accessToken = generateAccessToken(email, user._id);
+    const refreshToken = generateRefreshToken(email, user._id);
+
+    // Set refresh token as HTTP-only cookie
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production", // HTTPS in production
+      sameSite: "strict",
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    });
+
+    res.status(200).json({
+      accessToken,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+      },
+    });
   } catch (error) {
     console.error("Login error:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
+});
+
+// Refresh token endpoint
+app.post("/refresh", async (req, res) => {
+  try {
+    const refreshToken = req.cookies.refreshToken;
+    
+    if (!refreshToken) {
+      return res.status(401).json({ message: "No refresh token provided" });
+    }
+
+    // Verify refresh token
+    const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET);
+    
+    // Check if user still exists
+    const user = await User.findOne({ email: decoded.email });
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
+
+    // Generate new access token
+    const generateAccessToken = (email, userId) => {
+      return jwt.sign({ email: email, id: userId }, process.env.JWT_SECRET, {
+        expiresIn: "15m",
+      });
+    };
+
+    const newAccessToken = generateAccessToken(user.email, user._id);
+
+    res.status(200).json({
+      accessToken: newAccessToken,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+      },
+    });
+  } catch (error) {
+    console.error("Refresh token error:", error);
+    res.clearCookie("refreshToken");
+    res.status(401).json({ message: "Invalid refresh token" });
+  }
+});
+
+// Logout endpoint
+app.post("/logout", (req, res) => {
+  res.clearCookie("refreshToken");
+  res.status(200).json({ message: "Logged out successfully" });
 });
 
 app.post("/singup", async (req, res) => {
@@ -207,18 +279,18 @@ app.get("/oauth/google/callback", async (req, res) => {
 
   if (error) {
     console.log("OAuth error received:", error);
-    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
     return res.redirect(
-      `${frontendUrl}?oauth=error&message=${encodeURIComponent(error)}`
+      `${frontendUrl}?oauth_error=${encodeURIComponent(error)}`
     );
   }
 
   if (!code) {
     console.log("No authorization code received");
-    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
     return res.redirect(
-      `${frontendUrl}?oauth=error&message=${encodeURIComponent(
-        "No authorization code received"
+      `${frontendUrl}?oauth_error=${encodeURIComponent(
+        "no_authorization_code"
       )}`
     );
   }
@@ -245,9 +317,9 @@ app.get("/oauth/google/callback", async (req, res) => {
 
     if (tokenData.error) {
       console.log("Token exchange error:", tokenData.error);
-      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
       return res.redirect(
-        `${frontendUrl}?oauth=error&message=${encodeURIComponent(
+        `${frontendUrl}?oauth_error=${encodeURIComponent(
           tokenData.error_description || tokenData.error
         )}`
       );
@@ -269,9 +341,9 @@ app.get("/oauth/google/callback", async (req, res) => {
 
     if (userInfo.error) {
       console.log("User info error:", userInfo.error);
-      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
       return res.redirect(
-        `${frontendUrl}?oauth=error&message=${encodeURIComponent(
+        `${frontendUrl}?oauth_error=${encodeURIComponent(
           userInfo.error.message
         )}`
       );
@@ -295,8 +367,8 @@ app.get("/oauth/google/callback", async (req, res) => {
     console.log("OAuth data prepared:", oauthData);
 
     // Redirect to frontend with success message
-    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
-    const redirectUrl = `${frontendUrl}?oauth=success&data=${encodeURIComponent(
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+    const redirectUrl = `${frontendUrl}?oauth_success=true&oauth_data=${encodeURIComponent(
       JSON.stringify(oauthData)
     )}`;
     console.log("Redirecting to:", redirectUrl);
@@ -304,9 +376,9 @@ app.get("/oauth/google/callback", async (req, res) => {
     res.redirect(redirectUrl);
   } catch (error) {
     console.error("OAuth callback error:", error);
-    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
     res.redirect(
-      `${frontendUrl}?oauth=error&message=${encodeURIComponent(
+      `${frontendUrl}?oauth_error=${encodeURIComponent(
         "OAuth authentication failed"
       )}`
     );

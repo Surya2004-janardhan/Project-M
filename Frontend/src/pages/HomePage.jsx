@@ -221,7 +221,8 @@ export default function HomePage() {
                         setOauthMessage("Redirecting to Google OAuth...");
 
                         // Store current authentication state
-                        const currentToken = localStorage.getItem("token");
+                        const currentToken =
+                          localStorage.getItem("accessToken");
                         const userEmail = user?.email;
 
                         if (currentToken) {
