@@ -1,4 +1,6 @@
+const { google } = require("googleapis");
 const User = require("../models/User");
+const axios = require("axios");
 
 // YouTube Controller
 const youtubeController = {
@@ -207,12 +209,10 @@ const youtubeController = {
       }
 
       if (!existingUser.oauthData || !existingUser.oauthData.accessToken) {
-        return res
-          .status(400)
-          .json({
-            message:
-              "YouTube not connected. Please connect your YouTube account first.",
-          });
+        return res.status(400).json({
+          message:
+            "YouTube not connected. Please connect your YouTube account first.",
+        });
       }
 
       // Check if channels are already stored in OAuth data
@@ -273,6 +273,199 @@ const youtubeController = {
     } catch (error) {
       console.error("Error fetching user channels:", error);
       res.status(500).json({ message: "Internal Server Error" });
+    }
+  },
+
+  // Get user's YouTube channels with access token
+  getUserChannelsWithToken: async (req, res) => {
+    try {
+      // Expect access token in Authorization header as: Bearer <token>
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({
+          success: false,
+          error: "Missing or invalid Authorization header",
+        });
+      }
+
+      const accessToken = authHeader.split(" ")[1];
+      console.log("🔍 Fetching YouTube channels with access token");
+
+      const response = await axios.get(
+        "https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&mine=true",
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: "application/json",
+          },
+        }
+      );
+
+      console.log("✅ YouTube channels fetched successfully");
+      res.json({
+        success: true,
+        data: response.data,
+      });
+    } catch (error) {
+      console.error(
+        "❌ Error fetching YouTube channels:",
+        error.response?.data || error.message
+      );
+
+      if (error.response?.status === 401) {
+        return res.status(401).json({
+          success: false,
+          error:
+            "YouTube authentication expired. Please reconnect your account.",
+        });
+      }
+
+      res.status(500).json({
+        success: false,
+        error: error.response?.data?.error?.message || "Internal server error",
+      });
+    }
+  },
+
+  // Check OAuth status
+  checkOAuthStatus: async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const user = await User.findById(userId);
+      const isConnected = !!(
+        user.youtubeAccessToken && user.youtubeRefreshToken
+      );
+
+      res.json({
+        success: true,
+        data: { isConnected },
+      });
+    } catch (error) {
+      console.error("Check OAuth status error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to check OAuth status",
+      });
+    }
+  },
+
+  // Analyze channel with OAuth
+  analyzeChannelWithOAuth: async (req, res) => {
+    try {
+      const { channelLink } = req.body;
+      const userId = req.user.id;
+
+      if (!channelLink) {
+        return res.status(400).json({
+          success: false,
+          message: "Channel link is required",
+        });
+      }
+
+      const user = await User.findById(userId);
+      if (!user.youtubeAccessToken) {
+        return res.status(401).json({
+          success: false,
+          message: "YouTube account not connected",
+        });
+      }
+
+      // Initialize YouTube client with OAuth
+      const oauth2Client = new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        process.env.GOOGLE_REDIRECT_URI
+      );
+
+      oauth2Client.setCredentials({
+        access_token: user.youtubeAccessToken,
+        refresh_token: user.youtubeRefreshToken,
+      });
+
+      const youtube = google.youtube({ version: "v3", auth: oauth2Client });
+
+      // Extract channel ID from link
+      let channelId;
+      const channelIdMatch = channelLink.match(/channel\/([a-zA-Z0-9_-]+)/);
+      const usernameMatch = channelLink.match(/user\/([a-zA-Z0-9_-]+)/);
+      const handleMatch = channelLink.match(/@([a-zA-Z0-9_-]+)/);
+
+      if (channelIdMatch) {
+        channelId = channelIdMatch[1];
+      } else if (usernameMatch) {
+        // Convert username to channel ID
+        const channelResponse = await youtube.channels.list({
+          part: "id",
+          forUsername: usernameMatch[1],
+        });
+
+        if (channelResponse.data.items.length === 0) {
+          return res.status(404).json({
+            success: false,
+            message: "Channel not found",
+          });
+        }
+
+        channelId = channelResponse.data.items[0].id;
+      } else if (handleMatch) {
+        // Handle @username format
+        const searchResponse = await youtube.search.list({
+          part: "snippet",
+          q: handleMatch[1],
+          type: "channel",
+          maxResults: 1,
+        });
+
+        if (searchResponse.data.items.length === 0) {
+          return res.status(404).json({
+            success: false,
+            message: "Channel not found",
+          });
+        }
+
+        channelId = searchResponse.data.items[0].snippet.channelId;
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid channel link format",
+        });
+      }
+
+      // Get channel data
+      const channelResponse = await youtube.channels.list({
+        part: "snippet,statistics,contentDetails",
+        id: channelId,
+      });
+
+      if (channelResponse.data.items.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Channel not found",
+        });
+      }
+
+      const channelData = channelResponse.data.items[0];
+
+      res.json({
+        success: true,
+        data: channelData,
+        message: "Channel analyzed successfully",
+      });
+    } catch (error) {
+      console.error("Channel analysis error:", error);
+
+      if (error.code === 401 || error.message.includes("invalid_grant")) {
+        return res.status(401).json({
+          success: false,
+          message:
+            "YouTube authentication expired. Please reconnect your YouTube account.",
+        });
+      }
+
+      res.status(500).json({
+        success: false,
+        message: "Failed to analyze channel",
+      });
     }
   },
 };

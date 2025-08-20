@@ -1,15 +1,19 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "../store/AuthContext";
-import { youtubeAPI } from "../api/api";
+import { youtubeAPI, oauthAPI } from "../api/api";
+import { useNavigate } from "react-router-dom";
 
 export default function YouTubeManagementPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("overview");
   const [channelData, setChannelData] = useState(null);
   const [videoData, setVideoData] = useState(null);
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [isYouTubeConnected, setIsYouTubeConnected] = useState(false);
+  const [checkingConnection, setCheckingConnection] = useState(true);
 
   const [formData, setFormData] = useState({
     channelLink: "",
@@ -19,6 +23,35 @@ export default function YouTubeManagementPage() {
     comment: "",
     preference: "all",
   });
+
+  // Check OAuth connection status on component mount
+  useEffect(() => {
+    const checkYouTubeConnection = async () => {
+      setCheckingConnection(true);
+      try {
+        console.log("Checking YouTube connection...");
+        const response = await youtubeAPI.checkOAuthStatus();
+        console.log("OAuth status response:", response);
+
+        if (response.success) {
+          setIsYouTubeConnected(response.data.isConnected);
+          console.log("YouTube connected:", response.data.isConnected);
+        } else {
+          setIsYouTubeConnected(false);
+          console.log("OAuth check failed:", response.message);
+        }
+      } catch (error) {
+        console.error("Failed to check OAuth status:", error);
+        setIsYouTubeConnected(false);
+      } finally {
+        setCheckingConnection(false);
+      }
+    };
+
+    if (user) {
+      checkYouTubeConnection();
+    }
+  }, [user]);
 
   if (!user) {
     return (
@@ -41,32 +74,40 @@ export default function YouTubeManagementPage() {
       return;
     }
 
+    // Check if YouTube OAuth is connected
+    if (!isYouTubeConnected) {
+      setError("Please connect your YouTube account first");
+      setTimeout(() => {
+        navigate("/", {
+          state: {
+            message:
+              "Please connect your YouTube account to use channel analysis features",
+          },
+        });
+      }, 2000);
+      return;
+    }
+
     setLoading(true);
     setError("");
 
     try {
-      // Get channel ID
-      const channelIdResult = await youtubeAPI.getChannelId(
+      // Use OAuth-authenticated channel analysis
+      const channelDataResult = await youtubeAPI.analyzeChannelWithOAuth(
         formData.channelLink
       );
-      if (!channelIdResult.success) {
-        setError(channelIdResult.message);
-        return;
-      }
 
-      // Get channel data
-      const channelDataResult = await youtubeAPI.getChannelData(
-        channelIdResult.data.channelId
-      );
       if (channelDataResult.success) {
         setChannelData(channelDataResult.data);
         setActiveTab("channel");
       } else {
-        setError(channelDataResult.message);
+        setError(channelDataResult.message || "Failed to analyze channel");
       }
     } catch (err) {
-      console.log(err.message);
-      setError("Failed to analyze channel");
+      console.error("Channel analysis error:", err);
+      setError(
+        "Failed to analyze channel. Please check your connection and try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -199,6 +240,32 @@ export default function YouTubeManagementPage() {
             <p className="text-red-700 text-lg">
               Manage your YouTube channels, videos, and comments
             </p>
+
+            {/* OAuth Connection Status */}
+            <div className="mt-4">
+              {checkingConnection ? (
+                <div className="text-amber-700">
+                  Checking YouTube connection...
+                </div>
+              ) : (
+                <div
+                  className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${
+                    isYouTubeConnected
+                      ? "bg-green-100 text-green-800"
+                      : "bg-red-100 text-red-800"
+                  }`}
+                >
+                  <span
+                    className={`w-2 h-2 rounded-full mr-2 ${
+                      isYouTubeConnected ? "bg-green-500" : "bg-red-500"
+                    }`}
+                  ></span>
+                  {isYouTubeConnected
+                    ? "YouTube Connected"
+                    : "YouTube Not Connected"}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Tab Navigation */}

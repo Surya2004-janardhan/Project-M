@@ -30,7 +30,7 @@ app.get("/", (req, res) => {
 // Use routes
 app.use("/", authRoutes);
 app.use("/", userRoutes);
-app.use("/", oauthRoutes);
+app.use("/oauth", oauthRoutes);
 app.use("/", youtubeRoutes);
 app.use("/", adminRoutes);
 

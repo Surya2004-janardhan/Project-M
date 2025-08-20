@@ -24,4 +24,15 @@ router.post(
 );
 router.get("/youtube/channels", middleware, youtubeController.getUserChannels);
 
+// Add OAuth status and channel analysis routes
+router.get("/oauth-status", middleware, youtubeController.checkOAuthStatus);
+router.post(
+  "/analyze-channel-oauth",
+  middleware,
+  youtubeController.analyzeChannelWithOAuth
+);
+
+// User channels route
+router.get("/channels", youtubeController.getUserChannels);
+
 module.exports = router;

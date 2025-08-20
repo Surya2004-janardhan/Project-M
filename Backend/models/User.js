@@ -47,6 +47,19 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  // Add YouTube OAuth fields to the user schema
+  youtubeAccessToken: {
+    type: String,
+    default: null,
+  },
+  youtubeRefreshToken: {
+    type: String,
+    default: null,
+  },
+  youtubeConnectedAt: {
+    type: Date,
+    default: null,
+  },
 });
 const User = mongoose.model("User", userSchema);
 module.exports = User;
