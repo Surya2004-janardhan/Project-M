@@ -65,7 +65,7 @@ export default function YouTubeManagementPage() {
         setError(channelDataResult.message);
       }
     } catch (err) {
-        console.log(err.message);
+      console.log(err.message);
       setError("Failed to analyze channel");
     } finally {
       setLoading(false);
@@ -100,7 +100,7 @@ export default function YouTubeManagementPage() {
         setError(videoDataResult.message);
       }
     } catch (err) {
-        console.log(err.message);
+      console.log(err.message);
       setError("Failed to analyze video");
     } finally {
       setLoading(false);
@@ -128,7 +128,7 @@ export default function YouTubeManagementPage() {
         setError(commentsResult.message);
       }
     } catch (err) {
-        console.log(err.message);
+      console.log(err.message);
       setError("Failed to get comments");
     } finally {
       setLoading(false);
@@ -157,7 +157,7 @@ export default function YouTubeManagementPage() {
         setError(replyResult.message);
       }
     } catch (err) {
-        console.log(err.message);
+      console.log(err.message);
       setError("Failed to generate reply");
     } finally {
       setLoading(false);
@@ -175,7 +175,7 @@ export default function YouTubeManagementPage() {
     });
   };
 
-  const TabButton = ({  label, isActive, onClick }) => (
+  const TabButton = ({ label, isActive, onClick }) => (
     <button
       onClick={onClick}
       className={`px-4 py-2 rounded-lg transition-colors ${
@@ -233,12 +233,12 @@ export default function YouTubeManagementPage() {
               isActive={activeTab === "ai-reply"}
               onClick={() => setActiveTab("ai-reply")}
             />
-            <TabButton
+            {/* <TabButton
               tabKey="oauth"
               label="Connect YouTube"
               isActive={activeTab === "oauth"}
               onClick={() => setActiveTab("oauth")}
-            />
+            /> */}
           </div>
 
           {error && (
@@ -421,7 +421,7 @@ export default function YouTubeManagementPage() {
               </div>
             )}
 
-            {activeTab === "oauth" && (
+            {/* {activeTab === "oauth" && (
               <div className="space-y-6 text-center">
                 <h2 className="text-2xl font-semibold text-amber-900 mb-6">
                   Connect Your YouTube Account
@@ -437,7 +437,7 @@ export default function YouTubeManagementPage() {
                   Connect with Google/YouTube
                 </button>
               </div>
-            )}
+            )} */}
           </div>
         </div>
       </div>
