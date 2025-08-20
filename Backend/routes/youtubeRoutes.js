@@ -1,38 +1,45 @@
 const express = require("express");
 const router = express.Router();
 const youtubeController = require("../controllers/youtubeController");
-const middleware = require("../middleware/authMiddleware");
+const authMiddleware = require("../middleware/authMiddleware");
 
-// YouTube routes
-router.post("/youtube/channelId", middleware, youtubeController.getChannelId);
-router.post(
-  "/youtube/channelData",
-  middleware,
-  youtubeController.getChannelData
-);
-router.post("/youtube/videoId", middleware, youtubeController.getVideoId);
-router.post("/youtube/videoData", middleware, youtubeController.getVideoData);
-router.post(
-  "/youtube/comments",
-  middleware,
-  youtubeController.getCommentsAndReply
-);
-router.post(
-  "/youtube/llmReply",
-  middleware,
-  youtubeController.generateLLMReply
-);
-router.get("/youtube/channels", middleware, youtubeController.getUserChannels);
+// YouTube data routes
+router.post("/channelId", youtubeController.getChannelId);
+router.post("/channelData", youtubeController.getChannelData);
+router.post("/videoId", youtubeController.getVideoId);
+router.post("/videoData", youtubeController.getVideoData);
+router.post("/comments", youtubeController.getCommentsAndReply);
+router.post("/llmReply", youtubeController.generateLLMReply);
 
-// Add OAuth status and channel analysis routes
-router.get("/oauth-status", middleware, youtubeController.checkOAuthStatus);
+// OAuth YouTube routes
+router.get("/oauth-status", authMiddleware, youtubeController.checkOAuthStatus);
 router.post(
   "/analyze-channel-oauth",
-  middleware,
+  authMiddleware,
   youtubeController.analyzeChannelWithOAuth
 );
 
 // User channels route
-router.get("/channels", youtubeController.getUserChannels);
+router.get("/channels", youtubeController.getUserChannelsWithToken);
+
+// Debug route to list all available routes
+router.get("/debug-routes", (req, res) => {
+  res.json({
+    success: true,
+    message: "YouTube routes are loaded",
+    availableRoutes: [
+      "POST /api/youtube/analyze-channel-oauth",
+      "GET /api/youtube/oauth-status",
+      "GET /api/youtube/channels",
+      "POST /api/youtube/channelId",
+      "POST /api/youtube/channelData",
+      "POST /api/youtube/videoId",
+      "POST /api/youtube/videoData",
+      "POST /api/youtube/comments",
+      "POST /api/youtube/llmReply",
+    ],
+    timestamp: new Date().toISOString(),
+  });
+});
 
 module.exports = router;

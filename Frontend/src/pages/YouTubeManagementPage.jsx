@@ -3,6 +3,21 @@ import { useAuth } from "../store/AuthContext";
 import { youtubeAPI, oauthAPI } from "../api/api";
 import { useNavigate } from "react-router-dom";
 
+// Helper function to format numbers
+const formatNumber = (num) => {
+  const number = parseInt(num || 0);
+  if (number >= 1000000000) {
+    return (number / 1000000000).toFixed(1) + "B";
+  }
+  if (number >= 1000000) {
+    return (number / 1000000).toFixed(1) + "M";
+  }
+  if (number >= 1000) {
+    return (number / 1000).toFixed(1) + "K";
+  }
+  return number.toLocaleString();
+};
+
 export default function YouTubeManagementPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -92,11 +107,12 @@ export default function YouTubeManagementPage() {
     setError("");
 
     try {
+      console.log("inside of analyze with oauth");
       // Use OAuth-authenticated channel analysis
       const channelDataResult = await youtubeAPI.analyzeChannelWithOAuth(
         formData.channelLink
       );
-
+      console.log("here is the", channelDataResult);
       if (channelDataResult.success) {
         setChannelData(channelDataResult.data);
         setActiveTab("channel");
@@ -371,11 +387,100 @@ export default function YouTubeManagementPage() {
             {activeTab === "channel" && channelData && (
               <div className="space-y-6">
                 <h2 className="text-2xl font-semibold text-amber-900 mb-6">
-                  Channel Data
+                  Channel Analysis Results
                 </h2>
-                <pre className="bg-amber-50 p-4 rounded-lg overflow-auto text-sm">
-                  {JSON.stringify(channelData, null, 2)}
-                </pre>
+
+                {/* Channel Header */}
+                <div className="bg-gradient-to-r from-amber-50 to-red-50 p-6 rounded-lg">
+                  <div className="flex items-start gap-4">
+                    {channelData.thumbnails?.high && (
+                      <img
+                        src={channelData.thumbnails.high}
+                        alt={channelData.title}
+                        className="w-20 h-20 rounded-full object-cover"
+                      />
+                    )}
+                    <div className="flex-1">
+                      <h3 className="text-xl font-bold text-amber-900 mb-2">
+                        {channelData.title}
+                      </h3>
+                      <p className="text-red-700 text-sm mb-2">
+                        {channelData.customUrl &&
+                          `@${channelData.customUrl.replace(/^@/, "")}`}
+                      </p>
+                      <div className="flex flex-wrap gap-4 text-sm text-amber-800">
+                        <span>📺 Channel ID: {channelData.id}</span>
+                        {channelData.country && (
+                          <span>🌍 {channelData.country}</span>
+                        )}
+                        <span>
+                          📅 Since{" "}
+                          {new Date(
+                            channelData.publishedAt
+                          ).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <a
+                        href={channelData.urls?.channel}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm transition-colors"
+                      >
+                        View Channel
+                      </a>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Statistics Grid */}
+                <div className="grid md:grid-cols-3 gap-4">
+                  <div className="bg-green-50 border border-green-200 p-4 rounded-lg text-center">
+                    <div className="text-2xl font-bold text-green-700">
+                      {channelData.formatted?.subscriberCountText ||
+                        channelData.statistics?.subscriberCount?.toLocaleString()}
+                    </div>
+                    <div className="text-green-600 text-sm">Subscribers</div>
+                  </div>
+                  <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg text-center">
+                    <div className="text-2xl font-bold text-blue-700">
+                      {channelData.formatted?.videoCountText ||
+                        channelData.statistics?.videoCount?.toLocaleString()}
+                    </div>
+                    <div className="text-blue-600 text-sm">Videos</div>
+                  </div>
+                  <div className="bg-purple-50 border border-purple-200 p-4 rounded-lg text-center">
+                    <div className="text-2xl font-bold text-purple-700">
+                      {channelData.formatted?.viewCountText ||
+                        channelData.statistics?.viewCount?.toLocaleString()}
+                    </div>
+                    <div className="text-purple-600 text-sm">Total Views</div>
+                  </div>
+                </div>
+
+                {/* Channel Description */}
+                {channelData.description && (
+                  <div className="bg-amber-50 p-4 rounded-lg">
+                    <h4 className="font-semibold text-amber-900 mb-2">
+                      Description
+                    </h4>
+                    <p className="text-red-700 text-sm leading-relaxed">
+                      {channelData.description.substring(0, 500)}
+                      {channelData.description.length > 500 && "..."}
+                    </p>
+                  </div>
+                )}
+
+                {/* Raw Data Toggle */}
+                <details className="bg-gray-50 p-4 rounded-lg">
+                  <summary className="cursor-pointer font-semibold text-gray-700 mb-2">
+                    View Raw Data (For Developers)
+                  </summary>
+                  <pre className="bg-gray-100 p-4 rounded text-xs overflow-auto max-h-96">
+                    {JSON.stringify(channelData, null, 2)}
+                  </pre>
+                </details>
               </div>
             )}
 

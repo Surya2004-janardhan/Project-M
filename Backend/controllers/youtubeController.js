@@ -2,6 +2,21 @@ const { google } = require("googleapis");
 const User = require("../models/User");
 const axios = require("axios");
 
+// Helper function to format large numbers
+const formatLargeNumber = (num) => {
+  const number = parseInt(num || 0);
+  if (number >= 1000000000) {
+    return (number / 1000000000).toFixed(1) + "B";
+  }
+  if (number >= 1000000) {
+    return (number / 1000000).toFixed(1) + "M";
+  }
+  if (number >= 1000) {
+    return (number / 1000).toFixed(1) + "K";
+  }
+  return number.toString();
+};
+
 // YouTube Controller
 const youtubeController = {
   // Extract channel ID from YouTube link
@@ -353,7 +368,7 @@ const youtubeController = {
   analyzeChannelWithOAuth: async (req, res) => {
     try {
       const { channelLink } = req.body;
-      const userId = req.user.id;
+      console.log("📥 Channel analysis request:", { channelLink });
 
       if (!channelLink) {
         return res.status(400).json({
@@ -362,13 +377,52 @@ const youtubeController = {
         });
       }
 
-      const user = await User.findById(userId);
-      if (!user.youtubeAccessToken) {
-        return res.status(401).json({
-          success: false,
-          message: "YouTube account not connected",
+      // Try to get tokens from headers first (localStorage tokens)
+      let accessToken = req.headers["x-youtube-access-token"];
+      let refreshToken = req.headers["x-youtube-refresh-token"];
+
+      console.log("🔍 Token check:", {
+        hasXYouTubeAccessToken: !!accessToken,
+        hasXYouTubeRefreshToken: !!refreshToken,
+        hasAuthorizationHeader: !!req.headers.authorization,
+      });
+
+      // If not in headers, try Authorization header
+      if (!accessToken && req.headers.authorization) {
+        const authHeader = req.headers.authorization;
+        if (authHeader.startsWith("Bearer ")) {
+          accessToken = authHeader.split(" ")[1];
+          console.log("🔑 Using Authorization header token");
+        }
+      }
+
+      // If still no tokens, try from database (fallback)
+      if (!accessToken && req.user) {
+        console.log("🔍 Checking database for tokens...");
+        const user = await User.findById(req.user.id);
+        accessToken = user?.youtubeAccessToken;
+        refreshToken = user?.youtubeRefreshToken;
+        console.log("💾 Database tokens:", {
+          hasAccessToken: !!accessToken,
+          hasRefreshToken: !!refreshToken,
         });
       }
+
+      if (!accessToken) {
+        console.log("❌ No access token found");
+        return res.status(401).json({
+          success: false,
+          message:
+            "YouTube account not connected. Please connect your YouTube account first.",
+        });
+      }
+
+      console.log("🔍 Analyzing channel with OAuth token");
+      console.log("🔧 Environment check:", {
+        hasClientId: !!process.env.GOOGLE_CLIENT_ID,
+        hasClientSecret: !!process.env.GOOGLE_CLIENT_SECRET,
+        hasRedirectUri: !!process.env.GOOGLE_REDIRECT_URI,
+      });
 
       // Initialize YouTube client with OAuth
       const oauth2Client = new google.auth.OAuth2(
@@ -378,28 +432,40 @@ const youtubeController = {
       );
 
       oauth2Client.setCredentials({
-        access_token: user.youtubeAccessToken,
-        refresh_token: user.youtubeRefreshToken,
+        access_token: accessToken,
+        refresh_token: refreshToken,
       });
 
       const youtube = google.youtube({ version: "v3", auth: oauth2Client });
 
       // Extract channel ID from link
       let channelId;
+      console.log("🔍 Parsing channel link:", channelLink);
+
       const channelIdMatch = channelLink.match(/channel\/([a-zA-Z0-9_-]+)/);
       const usernameMatch = channelLink.match(/user\/([a-zA-Z0-9_-]+)/);
       const handleMatch = channelLink.match(/@([a-zA-Z0-9_-]+)/);
+      const cMatch = channelLink.match(/\/c\/([a-zA-Z0-9_-]+)/);
+
+      console.log("🔍 Link parsing results:", {
+        channelIdMatch: !!channelIdMatch,
+        usernameMatch: !!usernameMatch,
+        handleMatch: !!handleMatch,
+        cMatch: !!cMatch,
+      });
 
       if (channelIdMatch) {
         channelId = channelIdMatch[1];
+        console.log("✅ Found channel ID:", channelId);
       } else if (usernameMatch) {
-        // Convert username to channel ID
+        console.log("🔍 Converting username to channel ID:", usernameMatch[1]);
         const channelResponse = await youtube.channels.list({
           part: "id",
           forUsername: usernameMatch[1],
         });
 
         if (channelResponse.data.items.length === 0) {
+          console.log("❌ Channel not found for username:", usernameMatch[1]);
           return res.status(404).json({
             success: false,
             message: "Channel not found",
@@ -407,8 +473,9 @@ const youtubeController = {
         }
 
         channelId = channelResponse.data.items[0].id;
+        console.log("✅ Converted to channel ID:", channelId);
       } else if (handleMatch) {
-        // Handle @username format
+        console.log("🔍 Searching for handle:", handleMatch[1]);
         const searchResponse = await youtube.search.list({
           part: "snippet",
           q: handleMatch[1],
@@ -417,6 +484,7 @@ const youtubeController = {
         });
 
         if (searchResponse.data.items.length === 0) {
+          console.log("❌ Channel not found for handle:", handleMatch[1]);
           return res.status(404).json({
             success: false,
             message: "Channel not found",
@@ -424,27 +492,61 @@ const youtubeController = {
         }
 
         channelId = searchResponse.data.items[0].snippet.channelId;
+        console.log("✅ Found channel ID from handle:", channelId);
+      } else if (cMatch) {
+        console.log("🔍 Converting custom URL to channel ID:", cMatch[1]);
+        const searchResponse = await youtube.search.list({
+          part: "snippet",
+          q: cMatch[1],
+          type: "channel",
+          maxResults: 1,
+        });
+
+        if (searchResponse.data.items.length === 0) {
+          console.log("❌ Channel not found for custom URL:", cMatch[1]);
+          return res.status(404).json({
+            success: false,
+            message: "Channel not found",
+          });
+        }
+
+        channelId = searchResponse.data.items[0].snippet.channelId;
+        console.log("✅ Found channel ID from custom URL:", channelId);
       } else {
+        console.log("❌ Invalid channel link format:", channelLink);
         return res.status(400).json({
           success: false,
-          message: "Invalid channel link format",
+          message:
+            "Invalid channel link format. Please use a valid YouTube channel URL.",
         });
       }
 
-      // Get channel data
+      console.log("🔍 Fetching channel data for:", channelId);
+
+      // Get channel data using OAuth
       const channelResponse = await youtube.channels.list({
         part: "snippet,statistics,contentDetails",
         id: channelId,
       });
 
+      console.log("📊 Channel API response:", {
+        itemsFound: channelResponse.data.items?.length || 0,
+        hasError: !!channelResponse.data.error,
+      });
+
       if (channelResponse.data.items.length === 0) {
+        console.log("❌ No channel data returned for ID:", channelId);
         return res.status(404).json({
           success: false,
-          message: "Channel not found",
+          message: "Channel not found or not accessible",
         });
       }
 
       const channelData = channelResponse.data.items[0];
+      console.log(
+        "✅ Channel analyzed successfully:",
+        channelData.snippet?.title
+      );
 
       res.json({
         success: true,
@@ -452,9 +554,18 @@ const youtubeController = {
         message: "Channel analyzed successfully",
       });
     } catch (error) {
-      console.error("Channel analysis error:", error);
+      console.error("❌ Channel analysis error:", {
+        message: error.message,
+        code: error.code,
+        status: error.status,
+        response: error.response?.data,
+      });
 
-      if (error.code === 401 || error.message.includes("invalid_grant")) {
+      if (
+        error.code === 401 ||
+        error.message.includes("invalid_grant") ||
+        error.message.includes("Invalid Credentials")
+      ) {
         return res.status(401).json({
           success: false,
           message:
@@ -462,9 +573,18 @@ const youtubeController = {
         });
       }
 
+      if (error.code === 403) {
+        return res.status(403).json({
+          success: false,
+          message:
+            "Access forbidden. Please check your YouTube API permissions.",
+        });
+      }
+
       res.status(500).json({
         success: false,
-        message: "Failed to analyze channel",
+        message: `Failed to analyze channel: ${error.message}`,
+        error: error.message,
       });
     }
   },
