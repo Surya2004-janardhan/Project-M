@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { authAPI, tokenManager } from "../api/api";
 
 const AuthContext = createContext();
 
@@ -15,82 +14,70 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Auto-login check on app start or reload
+  // Simple JWT decode function
+  const decodeToken = (token) => {
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      return payload;
+    } catch (error) {
+      console.error("Error decoding token:", error);
+      return null;
+    }
+  };
+
+  // Check localStorage token on app start/reload
   useEffect(() => {
-    const autoLogin = async () => {
-      try {
-        const token = localStorage.getItem("token");
-        if (token) {
-          console.log("Auto-login: Token found, validating...");
+    const token = localStorage.getItem("token");
 
-          // Validate token and get user data
-          const userId = tokenManager.getUserId();
-          if (userId) {
-            const response = await fetch(
-              `http://localhost:5000/user/${userId}`,
-              {
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                },
-              }
-            );
+    if (token) {
+      const decoded = decodeToken(token);
 
-            if (response.ok) {
-              const userData = await response.json();
-              console.log("Auto-login successful:", userData.email);
-              setUser({
-                id: userData.id,
-                name: userData.name,
-                email: userData.email,
-              });
-            } else {
-              console.log("Auto-login failed: Invalid token");
-              // Token is invalid, remove it
-              localStorage.removeItem("token");
-              tokenManager.removeToken();
-            }
-          } else {
-            console.log("Auto-login failed: No user ID in token");
-            localStorage.removeItem("token");
-            tokenManager.removeToken();
-          }
-        } else {
-          console.log("Auto-login: No token found");
-        }
-      } catch (error) {
-        console.error("Auto-login error:", error);
+      if (decoded && decoded.exp && Date.now() < decoded.exp * 1000) {
+        // Token exists and is not expired
+        setUser({
+          id: decoded.id,
+          email: decoded.email,
+          name: decoded.name || decoded.email, // fallback to email if no name
+        });
+      } else {
+        // Token expired or invalid, remove it
         localStorage.removeItem("token");
-        tokenManager.removeToken();
-      } finally {
-        setLoading(false);
       }
-    };
+    }
 
-    autoLogin();
+    setLoading(false);
   }, []);
 
   const login = async (email, password) => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:5000/login', {
-        method: 'POST',
+
+      const response = await fetch("http://localhost:5000/login", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json",
         },
-        credentials: 'include', // Important for cookies
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password }),
       });
 
       const result = await response.json();
-      
-      if (response.ok && result.accessToken) {
-        // Store access token in localStorage
-        localStorage.setItem('accessToken', result.accessToken);
-        setUser(result.user);
-        console.log('Login successful:', result.user.email);
+
+      if (response.ok && result.token) {
+        // Store token in localStorage
+        localStorage.setItem("token", result.token);
+
+        // Decode token and set user
+        const decoded = decodeToken(result.token);
+        if (decoded) {
+          setUser({
+            id: result.user.id,
+            email: result.user.email,
+            name: result.user.name,
+          });
+        }
+
         return { success: true };
       } else {
-        console.log('Login failed:', result.message);
         return { success: false, message: result.message };
       }
     } catch (error) {
@@ -104,15 +91,25 @@ export const AuthProvider = ({ children }) => {
   const signup = async (name, channelLink, email, password) => {
     try {
       setLoading(true);
-      const result = await authAPI.signup(name, channelLink, email, password);
-      if (result.message === "Account created successfully") {
+
+      const response = await fetch("http://localhost:5000/singup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name, channelLink, email, password }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.message === "Account created successfully") {
         return { success: true };
       } else {
         return { success: false, message: result.message };
       }
     } catch (error) {
       console.error("Signup error:", error);
-      return { success: false, message: "Signup failed" };
+      return { success: false, message: "Network error - please try again" };
     } finally {
       setLoading(false);
     }
@@ -120,9 +117,8 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     setUser(null);
-    tokenManager.removeToken();
-    localStorage.removeItem("youtube_oauth_data"); // Also clear YouTube tokens
-    console.log("User logged out");
+    localStorage.removeItem("token");
+    localStorage.removeItem("youtube_oauth_data");
   };
 
   const value = {
@@ -133,7 +129,7 @@ export const AuthProvider = ({ children }) => {
     logout,
   };
 
-  // Show loading spinner during auto-login check
+  // Show loading spinner during token check
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">

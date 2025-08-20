@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../store/AuthContext";
-import { userAPI, tokenManager } from "../api/api";
 
 export default function HomePage() {
   const { user } = useAuth();
@@ -10,10 +9,22 @@ export default function HomePage() {
   const [userProfile, setUserProfile] = useState(null);
   const [oauthMessage, setOauthMessage] = useState("");
 
-  useEffect(() => {
-    // First check if JWT token exists (user authentication)
-    const jwtToken = localStorage.getItem("token");
+  // Simple token utilities
+  const getToken = () => localStorage.getItem("token");
+  const getUserIdFromToken = () => {
+    const token = getToken();
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        return payload.id;
+      } catch (error) {
+        return null;
+      }
+    }
+    return null;
+  };
 
+  useEffect(() => {
     // Check for OAuth redirect first
     const urlParams = new URLSearchParams(window.location.search);
     const oauthSuccess = urlParams.get("oauth_success");
@@ -26,9 +37,9 @@ export default function HomePage() {
         const parsedData = JSON.parse(decodeURIComponent(oauthData));
         localStorage.setItem("youtube_oauth_data", JSON.stringify(parsedData));
 
-        // Restore JWT token if it was backed up
+        // Restore token if it was backed up
         const backupToken = sessionStorage.getItem("auth_token_backup");
-        if (backupToken && !jwtToken) {
+        if (backupToken && !getToken()) {
           localStorage.setItem("token", backupToken);
         }
 
@@ -61,12 +72,11 @@ export default function HomePage() {
       setTimeout(() => setOauthMessage(""), 5000);
     }
 
-    // Check if user is authenticated (JWT exists)
-    if (localStorage.getItem("token")) {
+    // Check if user is authenticated (token exists)
+    if (getToken()) {
       // User is logged in, check YouTube connection status
       checkYouTubeConnection();
     }
-    // If no JWT token exists, AuthContext will redirect to login
   }, [user]);
 
   const associateOAuthWithUser = async (oauthData) => {
@@ -74,12 +84,12 @@ export default function HomePage() {
       console.log("Associating OAuth data with user:", oauthData);
 
       // Also save to backend if user is logged in
-      if (tokenManager.getToken()) {
+      if (getToken()) {
         const response = await fetch("http://localhost:5000/oauth/associate", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${tokenManager.getToken()}`,
+            Authorization: `Bearer ${getToken()}`,
           },
           body: JSON.stringify({ oauthData }),
         });
@@ -124,16 +134,21 @@ export default function HomePage() {
       }
 
       // Check backend as fallback
-      const userId = tokenManager.getUserId();
+      const userId = getUserIdFromToken();
       if (userId) {
-        const result = await userAPI.getUserData(userId);
-        if (result.success) {
-          setUserProfile(result.data);
-          // Check if user has OAuth data indicating YouTube connection
+        const response = await fetch(`http://localhost:5000/user/${userId}`, {
+          headers: {
+            Authorization: `Bearer ${getToken()}`,
+          },
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          setUserProfile(result);
           setIsYouTubeConnected(
-            result.data.oauthData &&
-              Object.keys(result.data.oauthData).length > 0 &&
-              result.data.oauthData.googleId
+            result.oauthData &&
+              Object.keys(result.oauthData).length > 0 &&
+              result.oauthData.googleId
           );
         }
       }
@@ -221,8 +236,7 @@ export default function HomePage() {
                         setOauthMessage("Redirecting to Google OAuth...");
 
                         // Store current authentication state
-                        const currentToken =
-                          localStorage.getItem("accessToken");
+                        const currentToken = getToken();
                         const userEmail = user?.email;
 
                         if (currentToken) {
