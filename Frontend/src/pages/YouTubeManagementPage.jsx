@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useAuth } from "../store/AuthContext";
-import { youtubeAPI, oauthAPI } from "../api/api";
+import { youtubeAPI } from "../api/api";
 
 export default function YouTubeManagementPage() {
   const { user } = useAuth();
@@ -164,9 +164,9 @@ export default function YouTubeManagementPage() {
     }
   };
 
-  const handleOAuthConnect = () => {
-    oauthAPI.initiateGoogleOAuth();
-  };
+  // const handleOAuthConnect = () => {
+  //   oauthAPI.initiateGoogleOAuth();
+  // };
 
   const handleInputChange = (e) => {
     setFormData({
