@@ -1,4 +1,89 @@
-const { google } = require("googleapis");
+cons; // Helper function to format large numbers
+const formatLargeNumber = (num) => {
+  const number = parseInt(num || 0);
+  if (number >= 1000000000) {
+    return (number / 1000000000).toFixed(1) + "B";
+  }
+  if (number >= 1000000) {
+    return (number / 1000000).toFixed(1) + "M";
+  }
+  if (number >= 1000) {
+    return (number / 1000).toFixed(1) + "K";
+  }
+  return number.toString();
+};
+
+// Helper function to calculate channel age
+const calculateChannelAge = (publishedAt) => {
+  const creationDate = new Date(publishedAt);
+  const now = new Date();
+  const ageInDays = Math.floor((now - creationDate) / (1000 * 60 * 60 * 24));
+  const ageInYears = Math.floor(ageInDays / 365);
+  const remainingDays = ageInDays % 365;
+  const ageInMonths = Math.floor(remainingDays / 30);
+
+  if (ageInYears > 0) {
+    return `${ageInYears} year${ageInYears > 1 ? "s" : ""} ${
+      ageInMonths > 0 ? `${ageInMonths} month${ageInMonths > 1 ? "s" : ""}` : ""
+    }`;
+  }
+  if (ageInMonths > 0) {
+    return `${ageInMonths} month${ageInMonths > 1 ? "s" : ""}`;
+  }
+  return `${ageInDays} day${ageInDays > 1 ? "s" : ""}`;
+};
+
+// Helper function to calculate subscriber engagement
+const calculateSubscriberEngagement = (stats) => {
+  const subscribers = parseInt(stats?.subscriberCount || 0);
+  const views = parseInt(stats?.viewCount || 0);
+
+  if (subscribers === 0) return "No subscribers";
+
+  const avgViewsPerSub = views / subscribers;
+  if (avgViewsPerSub > 100) return "Excellent";
+  if (avgViewsPerSub > 50) return "Good";
+  if (avgViewsPerSub > 20) return "Average";
+  return "Needs Improvement";
+};
+
+// Helper function to analyze channel performance
+const analyzeChannelPerformance = (stats) => {
+  const subscribers = parseInt(stats?.subscriberCount || 0);
+  const videos = parseInt(stats?.videoCount || 0);
+  const views = parseInt(stats?.viewCount || 0);
+
+  const avgViewsPerVideo = videos > 0 ? views / videos : 0;
+  const subsPerVideo = videos > 0 ? subscribers / videos : 0;
+
+  let performance = [];
+
+  if (avgViewsPerVideo > 10000) performance.push("High view count per video");
+  if (subsPerVideo > 100) performance.push("Good subscriber growth rate");
+  if (subscribers > 10000) performance.push("Strong subscriber base");
+  if (videos > 100) performance.push("Consistent content creation");
+
+  return performance.length > 0 ? performance : ["Growing channel"];
+};
+
+// Helper function to calculate content frequency
+const calculateContentFrequency = (publishedAt, videoCount) => {
+  const creationDate = new Date(publishedAt);
+  const now = new Date();
+  const ageInDays = Math.floor((now - creationDate) / (1000 * 60 * 60 * 24));
+  const videos = parseInt(videoCount || 0);
+
+  if (ageInDays === 0 || videos === 0) return "No content frequency data";
+
+  const videosPerDay = videos / ageInDays;
+  const videosPerWeek = videosPerDay * 7;
+  const videosPerMonth = videosPerDay * 30;
+
+  if (videosPerDay >= 1) return `${videosPerDay.toFixed(1)} videos per day`;
+  if (videosPerWeek >= 1) return `${videosPerWeek.toFixed(1)} videos per week`;
+  return `${videosPerMonth.toFixed(1)} videos per month`;
+};
+require("googleapis");
 const User = require("../models/User");
 const axios = require("axios");
 
@@ -542,16 +627,101 @@ const youtubeController = {
         });
       }
 
-      const channelData = channelResponse.data.items[0];
-      console.log(
-        "✅ Channel analyzed successfully:",
-        channelData.snippet?.title
+      // Get user's own channels to verify ownership
+      console.log("🔍 Checking if channel belongs to authenticated user...");
+      const userChannelsResponse = await youtube.channels.list({
+        part: "id,snippet",
+        mine: true,
+      });
+
+      const userChannelIds = userChannelsResponse.data.items.map(
+        (channel) => channel.id
       );
+      const isOwnChannel = userChannelIds.includes(channelId);
+
+      if (!isOwnChannel) {
+        console.log("❌ Channel does not belong to authenticated user");
+        return res.status(403).json({
+          success: false,
+          message:
+            "This channel does not belong to your authenticated account. You can only analyze your own channels.",
+          isOwnChannel: false,
+        });
+      }
+
+      const rawChannelData = channelResponse.data.items[0];
+      console.log(
+        "✅ Channel analyzed successfully (Own Channel):",
+        rawChannelData.snippet?.title
+      );
+
+      // Enhanced channel data with formatted statistics and analysis
+      const enhancedChannelData = {
+        id: rawChannelData.id,
+        title: rawChannelData.snippet.title,
+        description: rawChannelData.snippet.description,
+        customUrl: rawChannelData.snippet.customUrl,
+        publishedAt: rawChannelData.snippet.publishedAt,
+        country: rawChannelData.snippet.country,
+        defaultLanguage: rawChannelData.snippet.defaultLanguage,
+        thumbnails: rawChannelData.snippet.thumbnails,
+        statistics: {
+          subscriberCount: parseInt(
+            rawChannelData.statistics?.subscriberCount || 0
+          ),
+          videoCount: parseInt(rawChannelData.statistics?.videoCount || 0),
+          viewCount: parseInt(rawChannelData.statistics?.viewCount || 0),
+          hiddenSubscriberCount:
+            rawChannelData.statistics?.hiddenSubscriberCount,
+        },
+        formatted: {
+          subscriberCountText: formatLargeNumber(
+            rawChannelData.statistics?.subscriberCount || 0
+          ),
+          videoCountText: formatLargeNumber(
+            rawChannelData.statistics?.videoCount || 0
+          ),
+          viewCountText: formatLargeNumber(
+            rawChannelData.statistics?.viewCount || 0
+          ),
+          publishedDate: new Date(
+            rawChannelData.snippet.publishedAt
+          ).toLocaleDateString(),
+          channelAge: calculateChannelAge(rawChannelData.snippet.publishedAt),
+        },
+        urls: {
+          channel: `https://www.youtube.com/channel/${rawChannelData.id}`,
+          customUrl: rawChannelData.snippet.customUrl
+            ? `https://www.youtube.com/${rawChannelData.snippet.customUrl}`
+            : null,
+        },
+        analysis: {
+          averageViewsPerVideo: Math.round(
+            (rawChannelData.statistics?.viewCount || 0) /
+              (rawChannelData.statistics?.videoCount || 1)
+          ),
+          subscriberEngagement: calculateSubscriberEngagement(
+            rawChannelData.statistics
+          ),
+          channelPerformance: analyzeChannelPerformance(
+            rawChannelData.statistics
+          ),
+          contentFrequency: calculateContentFrequency(
+            rawChannelData.snippet.publishedAt,
+            rawChannelData.statistics?.videoCount
+          ),
+        },
+        contentDetails: rawChannelData.contentDetails,
+        isOwnChannel: true,
+        // Keep original data for compatibility
+        snippet: rawChannelData.snippet,
+        originalStatistics: rawChannelData.statistics,
+      };
 
       res.json({
         success: true,
-        data: channelData,
-        message: "Channel analyzed successfully",
+        data: enhancedChannelData,
+        message: "Your channel analyzed successfully",
       });
     } catch (error) {
       console.error("❌ Channel analysis error:", {

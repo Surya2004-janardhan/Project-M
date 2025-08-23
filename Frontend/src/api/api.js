@@ -159,6 +159,63 @@ api.interceptors.response.use(
   }
 );
 
+// Helper function to handle API responses and check for expired tokens
+const handleApiResponse = async (response, navigate) => {
+  if (response.status === 401) {
+    try {
+      const errorData = await response.json();
+      if (errorData.expired) {
+        console.log("🔒 JWT token expired detected in API response");
+        // Clear all tokens and redirect to login
+        tokenManager.clearAll();
+        if (navigate) {
+          navigate("/login", {
+            state: { message: "Your session has expired. Please login again." },
+          });
+        } else if (window.location) {
+          window.location.href = "/login";
+        }
+        return null;
+      }
+    } catch (e) {
+      // If we can't parse the response, still handle as unauthorized
+      console.log("🔒 Unauthorized response detected");
+      tokenManager.clearAll();
+      if (navigate) {
+        navigate("/login");
+      }
+      return null;
+    }
+  }
+  return response;
+};
+
+// Enhanced API base with automatic token expiration handling
+const apiWithAuth = async (url, options = {}) => {
+  const token = tokenManager.getToken();
+
+  if (!token) {
+    throw new Error("No authentication token available");
+  }
+
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      ...options.headers,
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  // Check for token expiration
+  const handledResponse = await handleApiResponse(response);
+  if (!handledResponse) {
+    throw new Error("Authentication expired");
+  }
+
+  return handledResponse;
+};
+
 // Auth API calls
 export const authAPI = {
   login: async (email, password) => {

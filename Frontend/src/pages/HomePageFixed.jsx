@@ -3,10 +3,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../store/AuthContext";
 import { tokenManager, youtubeAPI } from "../api/api";
 import OAuthHandler from "../components/OAuthHandler";
-import YouTubeOAuthHandler, {
-  isYouTubeConnected,
-  getYouTubeUserInfo,
-} from "../components/YouTubeOAuthHandler";
+import YouTubeOAuthHandler from "../components/YouTubeOAuthHandler";
 
 export default function HomePage() {
   const { user } = useAuth();
@@ -15,106 +12,14 @@ export default function HomePage() {
   const [oauthMessage, setOauthMessage] = useState("");
   const [userChannels, setUserChannels] = useState([]);
 
-  useEffect(() => {
-    // Check for OAuth redirect parameters
-    const urlParams = new URLSearchParams(window.location.search);
-    const oauthSuccess = urlParams.get("oauth_success");
-    const oauthData = urlParams.get("oauth_data");
-    const oauthError = urlParams.get("oauth_error");
-
-    if (oauthSuccess === "true" && oauthData) {
-      try {
-        const parsedData = JSON.parse(decodeURIComponent(oauthData));
-        localStorage.setItem("youtube_oauth_data", JSON.stringify(parsedData));
-        setOauthMessage("YouTube account connected successfully!");
-        setIsYouTubeConnected(true);
-
-        if (parsedData.channels) {
-          setUserChannels(parsedData.channels);
-        }
-
-        // Clean URL
-        window.history.replaceState(
-          {},
-          document.title,
-          window.location.pathname
-        );
-        setTimeout(() => setOauthMessage(""), 3000);
-      } catch (error) {
-        console.error("Error processing OAuth:", error);
-        setOauthMessage("Error processing YouTube connection");
-        setTimeout(() => setOauthMessage(""), 5000);
-      }
-    } else if (oauthError) {
-      setOauthMessage(`Failed to connect YouTube: ${oauthError}`);
-      window.history.replaceState({}, document.title, window.location.pathname);
-      setTimeout(() => setOauthMessage(""), 5000);
-    }
-
-    // Check existing connection only if user is logged in
-    if (user) {
-      const storedOAuthData = localStorage.getItem("youtube_oauth_data");
-      if (storedOAuthData && !oauthSuccess) {
-        try {
-          const parsedData = JSON.parse(storedOAuthData);
-          setIsYouTubeConnected(true);
-          if (parsedData.channels) {
-            setUserChannels(parsedData.channels);
-          }
-        } catch (error) {
-          console.log(error.message);
-          localStorage.removeItem("youtube_oauth_data");
-        }
-      }
-
-      const checkYouTubeConnection = () => {
-        const connected = tokenManager.isYouTubeConnected();
-        setIsYouTubeConnected(connected);
-
-        if (connected) {
-          const userInfo = localStorage.getItem("youtubeUserInfo");
-          if (userInfo) {
-            const userData = JSON.parse(userInfo);
-            setOauthMessage(`Connected as ${userData.name || userData.email}`);
-          } else {
-            setOauthMessage("YouTube account connected");
-          }
-        }
-      };
-
-      checkYouTubeConnection();
-    } else {
-      // If user is not logged in, clear YouTube connection state
-      setIsYouTubeConnected(false);
-      setUserChannels([]);
-      setOauthMessage("");
-    }
-  }, [user]); // Added user dependency
-
-  const handleYouTubeConnect = () => {
-    setLoading(true);
-    setOauthMessage("Redirecting to YouTube authentication...");
-    window.location.href = "http://localhost:5000/oauth/google";
-  };
-
-  const handleOAuthComplete = async (result) => {
-    if (result.success) {
-      setIsYouTubeConnected(true);
-      setOauthMessage(result.message);
-      if (result.userInfo) {
-        setOauthMessage(
-          `Connected as ${result.userInfo.name || result.userInfo.email}`
-        );
-      }
-
-      // Fetch user channels after successful OAuth
-      await fetchUserChannels();
-    } else {
-      setOauthMessage(result.message);
-    }
-
-    // Clear message after 5 seconds
-    setTimeout(() => setOauthMessage(""), 5000);
+  // Helper: Clear YouTube state & tokens
+  const clearYouTubeState = () => {
+    console.log("🧹 Clearing YouTube state...");
+    setIsYouTubeConnected(false);
+    setUserChannels([]);
+    setOauthMessage("");
+    tokenManager.clearAll();
+    localStorage.removeItem("youtube_oauth_data");
   };
 
   // Function to fetch user's YouTube channels
@@ -136,6 +41,101 @@ export default function HomePage() {
     }
   };
 
+  useEffect(() => {
+    // Check for OAuth redirect parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const oauthSuccess = urlParams.get("oauth_success");
+    const oauthData = urlParams.get("oauth_data");
+    const oauthError = urlParams.get("oauth_error");
+
+    if (oauthSuccess === "true" && oauthData) {
+      try {
+        const parsedData = JSON.parse(decodeURIComponent(oauthData));
+        localStorage.setItem("youtube_oauth_data", JSON.stringify(parsedData));
+        setOauthMessage("YouTube account connected successfully!");
+        setIsYouTubeConnected(true);
+
+        if (parsedData.channels) setUserChannels(parsedData.channels);
+
+        // Clean URL
+        window.history.replaceState(
+          {},
+          document.title,
+          window.location.pathname
+        );
+        setTimeout(() => setOauthMessage(""), 3000);
+      } catch (error) {
+        console.error("Error processing OAuth:", error);
+        setOauthMessage("Error processing YouTube connection");
+        setTimeout(() => setOauthMessage(""), 5000);
+      }
+    } else if (oauthError) {
+      setOauthMessage(`Failed to connect YouTube: ${oauthError}`);
+      window.history.replaceState({}, document.title, window.location.pathname);
+      setTimeout(() => setOauthMessage(""), 5000);
+    }
+
+    if (user) {
+      console.log("🔍 Checking YouTube connection for logged in user...");
+
+      const storedOAuthData = localStorage.getItem("youtube_oauth_data");
+      if (storedOAuthData && !oauthSuccess) {
+        try {
+          const parsedData = JSON.parse(storedOAuthData);
+          setIsYouTubeConnected(true);
+          if (parsedData.channels) setUserChannels(parsedData.channels);
+        } catch (error) {
+          console.log(error.message);
+          localStorage.removeItem("youtube_oauth_data");
+        }
+      }
+
+      const connected = tokenManager.isYouTubeConnected();
+      setIsYouTubeConnected(connected);
+
+      if (connected) {
+        const userInfo = localStorage.getItem("youtubeUserInfo");
+        if (userInfo) {
+          try {
+            const userData = JSON.parse(userInfo);
+            setOauthMessage(`Connected as ${userData.name || userData.email}`);
+          } catch {
+            setOauthMessage("YouTube account connected");
+          }
+        } else {
+          setOauthMessage("YouTube account connected");
+        }
+      }
+    } else {
+      clearYouTubeState();
+    }
+  }, [user]);
+
+  const handleYouTubeConnect = () => {
+    setLoading(true);
+    setOauthMessage("Redirecting to YouTube authentication...");
+    window.location.href = "http://localhost:5000/oauth/google";
+  };
+
+  const handleOAuthComplete = async (result) => {
+    if (result.success) {
+      setIsYouTubeConnected(true);
+      setOauthMessage(result.message);
+
+      if (result.userInfo) {
+        setOauthMessage(
+          `Connected as ${result.userInfo.name || result.userInfo.email}`
+        );
+      }
+
+      await fetchUserChannels();
+    } else {
+      setOauthMessage(result.message);
+    }
+
+    setTimeout(() => setOauthMessage(""), 5000);
+  };
+
   return (
     <div className="py-8">
       <div className="px-6">
@@ -143,8 +143,10 @@ export default function HomePage() {
           <h1 className="text-4xl font-bold text-amber-900 mb-4">
             Welcome to YouTube Manager
           </h1>
-          {/* YouTube OAuth Handler - handles callback processing */}
-          <YouTubeOAuthHandler onOAuthComplete={handleOAuthComplete} />{" "}
+
+          {/* YouTube OAuth Handler */}
+          <YouTubeOAuthHandler onOAuthComplete={handleOAuthComplete} />
+
           {/* OAuth Status Message */}
           {oauthMessage && (
             <div className="fixed top-4 right-4 z-50">
@@ -159,7 +161,8 @@ export default function HomePage() {
               </div>
             </div>
           )}
-          {/* YouTube Connection Status in Hero Section */}
+
+          {/* Connection Status */}
           <div className="text-center mb-8">
             <div
               className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${
@@ -178,16 +181,19 @@ export default function HomePage() {
                 : "YouTube Not Connected"}
             </div>
           </div>
+
           {user ? (
             <div>
               <p className="text-red-700 text-lg mb-8">
                 Welcome back, {user.name}!
               </p>
 
+              {/* YouTube Account Section */}
               <div className="bg-white rounded-lg shadow-lg p-6 mb-8 max-w-2xl mx-auto">
                 <h3 className="text-xl font-semibold text-amber-900 mb-4">
                   YouTube Account Connection
                 </h3>
+
                 {isYouTubeConnected ? (
                   <div className="text-center">
                     <div className="flex items-center gap-2 text-green-600 justify-center mb-4">
@@ -208,6 +214,7 @@ export default function HomePage() {
                         Connected to YouTube
                       </span>
                     </div>
+
                     {userChannels.length > 0 && (
                       <div className="mt-4">
                         <h4 className="text-lg font-medium text-amber-800 mb-2">
@@ -349,13 +356,7 @@ export default function HomePage() {
           Refresh Status
         </button>
         <button
-          onClick={() => {
-            console.log("🧹 Manual clear tokens...");
-            tokenManager.clearAll();
-            setIsYouTubeConnected(false);
-            setUserChannels([]);
-            setOauthMessage("");
-          }}
+          onClick={clearYouTubeState}
           className="mt-2 ml-2 px-2 py-1 bg-red-500 text-white rounded text-xs"
         >
           Clear All Tokens

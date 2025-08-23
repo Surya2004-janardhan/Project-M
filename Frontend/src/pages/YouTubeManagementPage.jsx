@@ -89,6 +89,12 @@ export default function YouTubeManagementPage() {
       return;
     }
 
+    console.log("🚀 Starting channel analysis...", {
+      channelLink: formData.channelLink,
+      isYouTubeConnected,
+      hasUser: !!user,
+    });
+
     // Check if YouTube OAuth is connected
     if (!isYouTubeConnected) {
       setError("Please connect your YouTube account first");
@@ -107,20 +113,29 @@ export default function YouTubeManagementPage() {
     setError("");
 
     try {
-      console.log("inside of analyze with oauth");
+      console.log("🔍 Calling analyzeChannelWithOAuth...");
       // Use OAuth-authenticated channel analysis
       const channelDataResult = await youtubeAPI.analyzeChannelWithOAuth(
         formData.channelLink
       );
-      console.log("here is the", channelDataResult);
+
+      console.log("📊 Analysis result received:", {
+        success: channelDataResult.success,
+        hasData: !!channelDataResult.data,
+        message: channelDataResult.message,
+        error: channelDataResult.error,
+      });
+
       if (channelDataResult.success) {
+        console.log("✅ Setting channel data and switching to channel tab");
         setChannelData(channelDataResult.data);
         setActiveTab("channel");
       } else {
+        console.error("❌ Analysis failed:", channelDataResult.message);
         setError(channelDataResult.message || "Failed to analyze channel");
       }
     } catch (err) {
-      console.error("Channel analysis error:", err);
+      console.error("❌ Channel analysis error:", err);
       setError(
         "Failed to analyze channel. Please check your connection and try again."
       );
@@ -469,6 +484,85 @@ export default function YouTubeManagementPage() {
                       {channelData.description.substring(0, 500)}
                       {channelData.description.length > 500 && "..."}
                     </p>
+                  </div>
+                )}
+
+                {/* Channel Analysis */}
+                {channelData.analysis && (
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <h4 className="font-semibold text-blue-900 mb-4">
+                      Channel Analysis
+                    </h4>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div>
+                        <h5 className="font-medium text-blue-800 mb-2">
+                          Performance Metrics
+                        </h5>
+                        <div className="space-y-1 text-sm">
+                          <div>
+                            Channel Age:{" "}
+                            <span className="font-medium">
+                              {channelData.formatted?.channelAge}
+                            </span>
+                          </div>
+                          <div>
+                            Avg Views/Video:{" "}
+                            <span className="font-medium">
+                              {channelData.analysis.averageViewsPerVideo?.toLocaleString()}
+                            </span>
+                          </div>
+                          <div>
+                            Engagement:{" "}
+                            <span className="font-medium">
+                              {channelData.analysis.subscriberEngagement}
+                            </span>
+                          </div>
+                          <div>
+                            Upload Frequency:{" "}
+                            <span className="font-medium">
+                              {channelData.analysis.contentFrequency}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <h5 className="font-medium text-blue-800 mb-2">
+                          Channel Strengths
+                        </h5>
+                        <ul className="text-sm space-y-1">
+                          {channelData.analysis.channelPerformance?.map(
+                            (strength, index) => (
+                              <li key={index} className="flex items-center">
+                                <span className="text-green-500 mr-2">✓</span>
+                                {strength}
+                              </li>
+                            )
+                          )}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Channel Ownership Badge */}
+                {channelData.isOwnChannel && (
+                  <div className="bg-green-50 border border-green-200 p-3 rounded-lg">
+                    <div className="flex items-center text-green-700">
+                      <svg
+                        className="w-5 h-5 mr-2"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      <span className="font-medium">
+                        Verified: This is your channel
+                      </span>
+                    </div>
                   </div>
                 )}
 
