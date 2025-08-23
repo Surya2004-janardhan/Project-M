@@ -1,4 +1,4 @@
-cons; // Helper function to format large numbers
+// cons; // Helper function to format large numbers
 const formatLargeNumber = (num) => {
   const number = parseInt(num || 0);
   if (number >= 1000000000) {
@@ -83,31 +83,34 @@ const calculateContentFrequency = (publishedAt, videoCount) => {
   if (videosPerWeek >= 1) return `${videosPerWeek.toFixed(1)} videos per week`;
   return `${videosPerMonth.toFixed(1)} videos per month`;
 };
-require("googleapis");
+const { google } = require("googleapis");
 const User = require("../models/User");
 const axios = require("axios");
 
 // Helper function to format large numbers
-const formatLargeNumber = (num) => {
-  const number = parseInt(num || 0);
-  if (number >= 1000000000) {
-    return (number / 1000000000).toFixed(1) + "B";
-  }
-  if (number >= 1000000) {
-    return (number / 1000000).toFixed(1) + "M";
-  }
-  if (number >= 1000) {
-    return (number / 1000).toFixed(1) + "K";
-  }
-  return number.toString();
-};
+// const formatLargeNumber = (num) => {
+//   const number = parseInt(num || 0);
+//   if (number >= 1000000000) {
+//     return (number / 1000000000).toFixed(1) + "B";
+//   }
+//   if (number >= 1000000) {
+//     return (number / 1000000).toFixed(1) + "M";
+//   }
+//   if (number >= 1000) {
+//     return (number / 1000).toFixed(1) + "K";
+//   }
+//   return number.toString();
+// };
 
 // YouTube Controller
 const youtubeController = {
   // Extract channel ID from YouTube link
   getChannelId: async (req, res) => {
     try {
+      console.log("here called the route ");
+      console.log(req.body);
       const { channelLink } = req.body;
+      console.log("channelLink: ", channelLink);
       if (!channelLink) {
         return res.status(400).json({ message: "Channel link is required" });
       }
@@ -120,6 +123,7 @@ const youtubeController = {
           .json({ message: "Invalid YouTube channel link" });
       }
       const channelId = match[1];
+      console.log("channelId: ", channelId);
       res.status(200).json({ channelId });
     } catch (error) {
       console.error("Error extracting channel ID:", error);

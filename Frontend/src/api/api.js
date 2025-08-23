@@ -393,7 +393,7 @@ export const youtubeAPI = {
   },
 
   // Analyze channel using OAuth authenticated client (with localStorage tokens)
-  analyzeChannelWithOAuth: async (channelLink) => {
+  analyzeChannelWithOAuth: async (ChannelId) => {
     try {
       // Check if we have tokens in localStorage
       if (!tokenManager.isYouTubeConnected()) {
@@ -414,7 +414,7 @@ export const youtubeAPI = {
             "X-YouTube-Access-Token": tokenManager.getYouTubeAccessToken(),
             "X-YouTube-Refresh-Token": tokenManager.getYouTubeRefreshToken(),
           },
-          body: JSON.stringify({ channelLink }),
+          body: JSON.stringify({ ChannelId }),
         }
       );
       return await response.json();

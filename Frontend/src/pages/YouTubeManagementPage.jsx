@@ -115,8 +115,10 @@ export default function YouTubeManagementPage() {
     try {
       console.log("🔍 Calling analyzeChannelWithOAuth...");
       // Use OAuth-authenticated channel analysis
+
+      const channelId = await youtubeAPI.getChannelId(formData.channelLink);
       const channelDataResult = await youtubeAPI.analyzeChannelWithOAuth(
-        formData.channelLink
+        channelId
       );
 
       console.log("📊 Analysis result received:", {

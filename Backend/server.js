@@ -31,7 +31,7 @@ app.get("/", (req, res) => {
 app.use("/", authRoutes);
 app.use("/", userRoutes);
 app.use("/oauth", oauthRoutes);
-app.use("/", youtubeRoutes);
+app.use("/youtube", youtubeRoutes);
 app.use("/", adminRoutes);
 
 app.listen(port, () => {
