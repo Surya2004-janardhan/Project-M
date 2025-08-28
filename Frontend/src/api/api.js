@@ -4,125 +4,129 @@ const API_BASE_URL = "http://localhost:5000";
 
 console.log("API_BASE_URL configured as:", API_BASE_URL);
 
-// Token management with localStorage
+// Enhanced token manager with improved persistence and debugging
 export const tokenManager = {
-  setToken: (token) => {
-    localStorage.setItem("authToken", token);
-  },
-
+  // Get JWT token with validation
   getToken: () => {
-    return localStorage.getItem("authToken");
+    const token = localStorage.getItem("authToken");
+    console.log(
+      "🔍 Retrieving JWT token:",
+      token ? "Token exists" : "No token found"
+    );
+    return token;
   },
 
-  removeToken: () => {
-    localStorage.removeItem("authToken");
+  // Set JWT token with verification
+  setToken: (token) => {
+    if (!token) {
+      console.warn("⚠️ Attempted to set empty JWT token");
+      return;
+    }
+    localStorage.setItem("authToken", token);
+    console.log("✅ JWT token stored in localStorage");
+
+    // For debugging - verify it was set
+    setTimeout(() => {
+      const storedToken = localStorage.getItem("authToken");
+      console.log("🔍 Token storage verification:", {
+        tokenSet: !!token,
+        tokenStored: !!storedToken,
+        match: token === storedToken,
+      });
+    }, 100);
   },
 
-  setUserId: (userId) => {
-    localStorage.setItem("userId", userId);
-  },
-
+  // Get User ID with validation
   getUserId: () => {
-    return localStorage.getItem("userId");
+    const userId = localStorage.getItem("userId");
+    console.log("🔍 Retrieving user ID:", userId ? "ID exists" : "No ID found");
+    return userId;
   },
 
-  removeUserId: () => {
-    localStorage.removeItem("userId");
+  // Set User ID with verification
+  setUserId: (userId) => {
+    if (!userId) {
+      console.warn("⚠️ Attempted to set empty user ID");
+      return;
+    }
+    localStorage.setItem("userId", userId);
+    console.log("✅ User ID stored in localStorage:", userId);
   },
 
-  // YouTube OAuth token management
-  setYouTubeTokens: (accessToken, refreshToken) => {
-    localStorage.setItem("youtubeAccessToken", accessToken);
-    localStorage.setItem("youtubeRefreshToken", refreshToken);
-    localStorage.setItem("youtubeConnectedAt", Date.now().toString());
+  // Check if YouTube is connected
+  isYouTubeConnected: () => {
+    const hasNewToken = !!localStorage.getItem("yt_access_token");
+    const hasOldToken = !!localStorage.getItem("youtubeAccessToken");
+    const result = hasNewToken || hasOldToken;
+
+    console.log("🔍 YouTube connection check:", {
+      hasNewToken,
+      hasOldToken,
+      isConnected: result,
+    });
+
+    return result;
   },
 
+  // Get YouTube access token from either format
   getYouTubeAccessToken: () => {
+    // Try new format first
+    const newToken = localStorage.getItem("yt_access_token");
+    if (newToken) return newToken;
+
+    // Fall back to old format
     return localStorage.getItem("youtubeAccessToken");
   },
 
+  // Get YouTube refresh token from either format
   getYouTubeRefreshToken: () => {
+    // Try new format first
+    const newToken = localStorage.getItem("yt_refresh_token");
+    if (newToken) return newToken;
+
+    // Fall back to old format
     return localStorage.getItem("youtubeRefreshToken");
   },
 
-  isYouTubeConnected: () => {
-    const accessToken = localStorage.getItem("youtubeAccessToken");
-    const refreshToken = localStorage.getItem("youtubeRefreshToken");
-    const isConnected = !!(accessToken && refreshToken);
+  // Debug YouTube storage
+  debugYouTubeStorage: () => {
+    const items = {
+      yt_access_token: localStorage.getItem("yt_access_token"),
+      yt_refresh_token: localStorage.getItem("yt_refresh_token"),
+      youtubeAccessToken: localStorage.getItem("youtubeAccessToken"),
+      youtubeRefreshToken: localStorage.getItem("youtubeRefreshToken"),
+      youtube_oauth_data: localStorage.getItem("youtube_oauth_data"),
+    };
 
-    console.log("🔍 YouTube connection check:", {
-      hasAccessToken: !!accessToken,
-      hasRefreshToken: !!refreshToken,
-      isConnected,
+    console.table({
+      yt_access_token: !!items.yt_access_token,
+      yt_refresh_token: !!items.yt_refresh_token,
+      youtubeAccessToken: !!items.youtubeAccessToken,
+      youtubeRefreshToken: !!items.youtubeRefreshToken,
+      youtube_oauth_data: !!items.youtube_oauth_data,
     });
 
-    return isConnected;
+    return items;
   },
 
-  removeYouTubeTokens: () => {
-    localStorage.removeItem("youtubeAccessToken");
-    localStorage.removeItem("youtubeRefreshToken");
-    localStorage.removeItem("youtubeConnectedAt");
-  },
+  // Set YouTube tokens (new format)
+  setYouTubeTokens: (accessToken, refreshToken) => {
+    if (accessToken) {
+      localStorage.setItem("yt_access_token", accessToken);
+      console.log("✅ YouTube access token stored");
+    }
 
-  // Clear all tokens (for logout)
-  clearAll: () => {
-    console.log("🧹 Clearing all tokens and OAuth data...");
-
-    // Clear JWT tokens
-    localStorage.removeItem("authToken");
-    localStorage.removeItem("userId");
-
-    // Clear YouTube OAuth tokens (old format)
-    localStorage.removeItem("youtubeAccessToken");
-    localStorage.removeItem("youtubeRefreshToken");
-    localStorage.removeItem("youtubeConnectedAt");
-    localStorage.removeItem("youtubeUserInfo");
-    localStorage.removeItem("youtubeTokenExpiry");
-    localStorage.removeItem("youtubeTokenScope");
-
-    // Clear YouTube OAuth tokens (new format)
-    localStorage.removeItem("yt_access_token");
-    localStorage.removeItem("yt_refresh_token");
-    localStorage.removeItem("yt_token_expiry");
-    localStorage.removeItem("yt_token_scope");
-    localStorage.removeItem("yt_user_info");
-
-    // Clear any other YouTube-related data
-    localStorage.removeItem("youtube_oauth_data");
-
-    console.log("✅ All tokens and OAuth data cleared");
-  },
-
-  isTokenValid: () => {
-    const token = localStorage.getItem("authToken");
-    if (!token) return false;
-
-    try {
-      // Decode JWT payload (basic check)
-      const payload = JSON.parse(atob(token.split(".")[1]));
-      const currentTime = Date.now() / 1000;
-
-      return payload.exp > currentTime;
-    } catch (error) {
-      console.log(error.message);
-      return false;
+    if (refreshToken) {
+      localStorage.setItem("yt_refresh_token", refreshToken);
+      console.log("✅ YouTube refresh token stored");
     }
   },
 
-  // Debug function to check all YouTube related localStorage items
-  debugYouTubeStorage: () => {
-    const items = {
-      youtubeAccessToken: localStorage.getItem("youtubeAccessToken"),
-      youtubeRefreshToken: localStorage.getItem("youtubeRefreshToken"),
-      youtubeConnectedAt: localStorage.getItem("youtubeConnectedAt"),
-      youtubeUserInfo: localStorage.getItem("youtubeUserInfo"),
-      youtubeTokenExpiry: localStorage.getItem("youtubeTokenExpiry"),
-      youtubeTokenScope: localStorage.getItem("youtubeTokenScope"),
-    };
-
-    console.log("📋 YouTube localStorage debug:", items);
-    return items;
+  // Clear all tokens and data (for logout)
+  clearAll: () => {
+    console.log("🧹 Clearing all tokens and data...");
+    localStorage.clear();
+    console.log("✅ All tokens and data cleared completely");
   },
 };
 
@@ -268,6 +272,20 @@ export const authAPI = {
         message: error.response?.data?.message || "Failed to get profile",
       };
     }
+  },
+
+  // Complete logout function that clears all storage
+  logout: () => {
+    console.log("🧹 Complete logout initiated...");
+
+    // Clear all localStorage data
+    localStorage.clear();
+
+    console.log(
+      "✅ All tokens and storage cleared - Complete logout successful"
+    );
+
+    return { success: true };
   },
 };
 

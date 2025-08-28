@@ -4,6 +4,20 @@ import { useAuth } from "../store/AuthContext";
 export default function ContentPage() {
   const { user } = useAuth();
 
+  // Effect to verify authentication state on page load/refresh
+  React.useEffect(() => {
+    // Check localStorage directly
+    const authToken = localStorage.getItem("authToken");
+    const userId = localStorage.getItem("userId");
+
+    console.log("🔍 ContentPage auth check:", {
+      hasAuthToken: !!authToken,
+      hasUserId: !!userId,
+      userInState: !!user,
+      tokenLength: authToken?.length || 0,
+    });
+  }, [user]);
+
   if (!user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-amber-50 to-red-50 flex items-center justify-center">
@@ -12,6 +26,18 @@ export default function ContentPage() {
             Access Denied
           </h1>
           <p className="text-red-700">Please log in to view your content.</p>
+          <div className="mt-4 p-3 bg-white rounded-lg text-sm text-left">
+            <p>Auth Debug:</p>
+            <p>
+              Token in localStorage:{" "}
+              {localStorage.getItem("authToken") ? "✅ Present" : "❌ Missing"}
+            </p>
+            <p>
+              UserID in localStorage:{" "}
+              {localStorage.getItem("userId") ? "✅ Present" : "❌ Missing"}
+            </p>
+            <p>User in React state: {user ? "✅ Present" : "❌ Missing"}</p>
+          </div>
         </div>
       </div>
     );
